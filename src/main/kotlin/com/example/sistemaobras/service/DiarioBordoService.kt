@@ -1,0 +1,92 @@
+package com.example.sistemaobras.service
+
+import com.example.sistemaobras.dto.AbrirDiarioRequest
+import com.example.sistemaobras.dto.DiarioResponse
+import com.example.sistemaobras.dto.FecharDiarioRequest
+import com.example.sistemaobras.repository.DiarioBordoRepository
+import com.example.sistemaobras.repository.TurnoRepository
+import com.example.sistemaobras.repository.VeiculoRepository
+import org.springframework.stereotype.Service
+
+@Service
+class DiarioBordoService(
+    private val diarioRepository: DiarioBordoRepository,
+    private val turnoRepository: TurnoRepository,
+    private val veiculoRepository: VeiculoRepository
+) {
+
+    fun abrirDiario(request: AbrirDiarioRequest): DiarioResponse {
+        if (turnoRepository.temTurnoAberto(request.loginMotorista) == 0L)
+            throw RuntimeException("Motorista não tem turno aberto")
+
+        if (diarioRepository.temDiarioAberto(request.loginMotorista) > 0)
+            throw RuntimeException("Motorista já tem um diário aberto")
+
+        diarioRepository.abrirDiario(
+            login = request.loginMotorista,
+            veiculoId = request.veiculoId,
+            motivoUsoId = request.motivoUsoId,
+            destino = request.destino,
+            medidorInicial = request.medidorInicial
+        )
+
+        val diario = diarioRepository.findDiarioAberto(request.loginMotorista)!!
+
+        return DiarioResponse(
+            id = diario.id,
+            veiculoDescricao = "",
+            veiculoPlaca = null,
+            motoristaNome = request.loginMotorista,
+            medidorInicial = diario.medidorInicial.toDouble(),
+            medidorFinal = null,
+            medidorPercorrido = null,
+            destino = diario.destino,
+            status = diario.status,
+            abertoEm = diario.abertoEm,
+            fechadoEm = null
+        )
+    }
+
+    fun fecharDiario(login: String, request: FecharDiarioRequest): DiarioResponse {
+        val diario = diarioRepository.findDiarioAberto(login)
+            ?: throw RuntimeException("Não há diário aberto para este motorista")
+
+        diarioRepository.fecharDiario(
+            id = diario.id.toString(),
+            medidorFinal = request.medidorFinal,
+            observacao = request.observacaoFechamento
+        )
+
+        return DiarioResponse(
+            id = diario.id,
+            veiculoDescricao = "",
+            veiculoPlaca = null,
+            motoristaNome = login,
+            medidorInicial = diario.medidorInicial.toDouble(),
+            medidorFinal = request.medidorFinal,
+            medidorPercorrido = request.medidorFinal - diario.medidorInicial.toDouble(),
+            destino = diario.destino,
+            status = "fechado",
+            abertoEm = diario.abertoEm,
+            fechadoEm = java.time.LocalDateTime.now()
+        )
+    }
+
+    fun buscarDiarioAberto(login: String): DiarioResponse? {
+        val diario = diarioRepository.findDiarioAberto(login) ?: return null
+
+        return DiarioResponse(
+            id = diario.id,
+            veiculoDescricao = "",
+            veiculoPlaca = null,
+            motoristaNome = login,
+            medidorInicial = diario.medidorInicial.toDouble(),
+            medidorFinal = diario.medidorFinal?.toDouble(),
+            medidorPercorrido = diario.medidorPercorrido?.toDouble(),
+            destino = diario.destino,
+            status = diario.status,
+            abertoEm = diario.abertoEm,
+            fechadoEm = diario.fechadoEm
+        )
+    }
+}
