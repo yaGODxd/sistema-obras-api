@@ -23,7 +23,7 @@ class AuthController(
     }
 
     @PostMapping("/cadastrar")
-    fun cadastrar(@RequestBodxy request: CriarUsuarioRequest): ResponseEntity<LoginResponse> {
+    fun cadastrar(@RequestBody request: CriarUsuarioRequest): ResponseEntity<LoginResponse> {
         return try {
             val response = usuarioService.criar(request)
             ResponseEntity.status(201).body(response)
