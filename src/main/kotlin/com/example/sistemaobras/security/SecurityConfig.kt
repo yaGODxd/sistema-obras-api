@@ -33,8 +33,17 @@ class SecurityConfig {
             .cors { it.configurationSource(corsConfigurationSource()) }
             .csrf { it.disable() }
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
-            .authorizeHttpRequests {
-                it.requestMatchers("/auth/**", "/usuarios/**", "/turnos/**", "/veiculos/**", "/diarios/**", "/rastreamento/**").permitAll()            }
+            .authorizeHttpRequests { auth ->
+                auth.requestMatchers(
+                    "/auth/**",
+                    "/usuarios/**",
+                    "/turnos/**",
+                    "/veiculos/**",
+                    "/diarios/**",
+                    "/rastreamento/**"
+                ).permitAll()
+                auth.anyRequest().authenticated()
+            }
         return http.build()
     }
 }
