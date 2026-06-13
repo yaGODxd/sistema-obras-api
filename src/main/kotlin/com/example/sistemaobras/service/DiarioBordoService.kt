@@ -73,20 +73,24 @@ class DiarioBordoService(
     }
 
     fun buscarDiarioAberto(login: String): DiarioResponse? {
-        val diario = diarioRepository.findDiarioAberto(login) ?: return null
+        val row = diarioRepository.findDiarioAbertoDetalhado(login) ?: return null
 
         return DiarioResponse(
-            id = diario.id,
-            veiculoDescricao = "",
-            veiculoPlaca = null,
-            motoristaNome = login,
-            medidorInicial = diario.medidorInicial.toDouble(),
-            medidorFinal = diario.medidorFinal?.toDouble(),
-            medidorPercorrido = diario.medidorPercorrido?.toDouble(),
-            destino = diario.destino,
-            status = diario.status,
-            abertoEm = diario.abertoEm,
-            fechadoEm = diario.fechadoEm
+            id = java.util.UUID.fromString(row[0].toString()),
+            veiculoDescricao = row[1]?.toString() ?: "",
+            veiculoPlaca = row[2]?.toString(),
+            motoristaNome = row[3]?.toString() ?: "",
+            medidorInicial = row[4].toString().toDouble(),
+            medidorFinal = row[5]?.toString()?.toDoubleOrNull(),
+            medidorPercorrido = row[6]?.toString()?.toDoubleOrNull(),
+            destino = row[7]?.toString(),
+            status = row[8]?.toString() ?: "",
+            abertoEm = if (row[9] != null)
+                java.time.LocalDateTime.parse(row[9].toString().replace(" ", "T"))
+            else null,
+            fechadoEm = if (row[10] != null)
+                java.time.LocalDateTime.parse(row[10].toString().replace(" ", "T"))
+            else null
         )
     }
 }

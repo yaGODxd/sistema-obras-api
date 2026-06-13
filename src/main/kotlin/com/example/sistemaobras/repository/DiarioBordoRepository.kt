@@ -83,4 +83,30 @@ interface DiarioBordoRepository : JpaRepository<DiarioBordo, UUID> {
         @org.springframework.data.repository.query.Param("medidorFinal") medidorFinal: Double,
         @org.springframework.data.repository.query.Param("observacao") observacao: String?
     )
+
+    @Query(
+        value = """
+        SELECT 
+            d.id,
+            v.descricao as veiculo_descricao,
+            v.placa as veiculo_placa,
+            u.nome_completo as motorista_nome,
+            d.medidor_inicial,
+            d.medidor_final,
+            d.medidor_percorrido,
+            d.destino,
+            d.status,
+            d.aberto_em,
+            d.fechado_em
+        FROM diarios_bordo d
+        INNER JOIN usuarios u ON u.id = d.usuario_id
+        INNER JOIN veiculos v ON v.id = d.veiculo_id
+        WHERE u.login = :login AND d.status = 'aberto'
+        LIMIT 1
+    """,
+        nativeQuery = true
+    )
+    fun findDiarioAbertoDetalhado(
+        @org.springframework.data.repository.query.Param("login") login: String
+    ): Array<Any>?
 }
