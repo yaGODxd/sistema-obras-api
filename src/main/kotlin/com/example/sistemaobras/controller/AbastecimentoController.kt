@@ -1,5 +1,6 @@
 package com.example.sistemaobras.controller
 
+import com.example.sistemaobras.dto.AbastecimentoDetalhadoResponse
 import com.example.sistemaobras.dto.AbastecimentoRequest
 import com.example.sistemaobras.dto.AbastecimentoResponse
 import com.example.sistemaobras.service.AbastecimentoService
@@ -29,5 +30,20 @@ class AbastecimentoController(
     @GetMapping("/aberto/{login}")
     fun listarDiarioAberto(@PathVariable login: String): ResponseEntity<List<AbastecimentoResponse>> {
         return ResponseEntity.ok(abastecimentoService.listarDiarioAberto(login))
+    }
+
+    @GetMapping("/veiculo/{veiculoId}")
+    fun listarPorVeiculo(@PathVariable veiculoId: String): ResponseEntity<List<AbastecimentoDetalhadoResponse>> {
+        return ResponseEntity.ok(abastecimentoService.listarPorVeiculo(veiculoId))
+    }
+
+    @GetMapping("/motorista/{login}")
+    fun listarPorMotorista(@PathVariable login: String): ResponseEntity<List<AbastecimentoDetalhadoResponse>> {
+        return ResponseEntity.ok(abastecimentoService.listarPorMotorista(login))
+    }
+
+    @GetMapping
+    fun listarTodos(): ResponseEntity<List<AbastecimentoDetalhadoResponse>> {
+        return ResponseEntity.ok(abastecimentoService.listarTodos())
     }
 }
