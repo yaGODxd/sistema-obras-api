@@ -62,57 +62,33 @@ class AbastecimentoService(
         }
     }
 
-    fun listarPorVeiculo(veiculoId: String): List<AbastecimentoDetalhadoResponse> {
-        return abastecimentoRepository.findByVeiculo(veiculoId).map { row ->
-            AbastecimentoDetalhadoResponse(
-                id = UUID.fromString(row[0].toString()),
-                tipoCombustivel = row[2].toString(),
-                litros = row[3].toString().toDouble(),
-                valorTotal = row[4].toString().toDouble(),
-                posto = row[5]?.toString(),
-                registradoEm = if (row[7] != null)
-                    java.time.LocalDateTime.parse(row[7].toString().replace(" ", "T"))
-                else null,
-                veiculoDescricao = row[8].toString(),
-                veiculoPlaca = row[9]?.toString(),
-                motoristaNome = row[10].toString()
-            )
-        }
-    }
-
-    fun listarPorMotorista(login: String): List<AbastecimentoDetalhadoResponse> {
-        return abastecimentoRepository.findByMotorista(login).map { row ->
-            AbastecimentoDetalhadoResponse(
-                id = UUID.fromString(row[0].toString()),
-                tipoCombustivel = row[2].toString(),
-                litros = row[3].toString().toDouble(),
-                valorTotal = row[4].toString().toDouble(),
-                posto = row[5]?.toString(),
-                registradoEm = if (row[7] != null)
-                    java.time.LocalDateTime.parse(row[7].toString().replace(" ", "T"))
-                else null,
-                veiculoDescricao = row[8].toString(),
-                veiculoPlaca = row[9]?.toString(),
-                motoristaNome = row[10].toString()
-            )
-        }
+    private fun mapearRow(row: Array<Any>): AbastecimentoDetalhadoResponse {
+        return AbastecimentoDetalhadoResponse(
+            id = UUID.fromString(row[0].toString()),
+            tipoCombustivel = row[2].toString(),
+            litros = row[3].toString().toDouble(),
+            valorTotal = row[4].toString().toDouble(),
+            posto = row[5]?.toString(),
+            registradoEm = if (row[7] != null)
+                java.time.LocalDateTime.parse(row[7].toString().replace(" ", "T"))
+            else null,
+            veiculoId = row[8].toString(),
+            veiculoDescricao = row[9].toString(),
+            veiculoPlaca = row[10]?.toString(),
+            motoristaLogin = row[11].toString(),
+            motoristaNome = row[12].toString()
+        )
     }
 
     fun listarTodos(): List<AbastecimentoDetalhadoResponse> {
-        return abastecimentoRepository.findTodos().map { row ->
-            AbastecimentoDetalhadoResponse(
-                id = UUID.fromString(row[0].toString()),
-                tipoCombustivel = row[2].toString(),
-                litros = row[3].toString().toDouble(),
-                valorTotal = row[4].toString().toDouble(),
-                posto = row[5]?.toString(),
-                registradoEm = if (row[7] != null)
-                    java.time.LocalDateTime.parse(row[7].toString().replace(" ", "T"))
-                else null,
-                veiculoDescricao = row[8].toString(),
-                veiculoPlaca = row[9]?.toString(),
-                motoristaNome = row[10].toString()
-            )
-        }
+        return abastecimentoRepository.findTodos().map { mapearRow(it) }
+    }
+
+    fun listarPorVeiculo(veiculoId: String): List<AbastecimentoDetalhadoResponse> {
+        return abastecimentoRepository.findByVeiculo(veiculoId).map { mapearRow(it) }
+    }
+
+    fun listarPorMotorista(login: String): List<AbastecimentoDetalhadoResponse> {
+        return abastecimentoRepository.findByMotorista(login).map { mapearRow(it) }
     }
 }

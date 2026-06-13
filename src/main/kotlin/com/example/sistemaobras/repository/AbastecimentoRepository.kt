@@ -55,18 +55,39 @@ interface AbastecimentoRepository : JpaRepository<Abastecimento, UUID> {
 
     @Query(
         value = """
-        SELECT 
-            a.*,
-            v.descricao as veiculo_descricao,
-            v.placa as veiculo_placa,
-            u.nome_completo as motorista_nome
-        FROM abastecimentos a
-        INNER JOIN diarios_bordo d ON d.id = a.diario_id
-        INNER JOIN veiculos v ON v.id = d.veiculo_id
-        INNER JOIN usuarios u ON u.id = d.usuario_id
-        WHERE v.id = CAST(:veiculoId AS uuid)
-        ORDER BY a.registrado_em DESC
-    """,
+            SELECT 
+                a.*,
+                v.id as veiculo_id,
+                v.descricao as veiculo_descricao,
+                v.placa as veiculo_placa,
+                u.login as motorista_login,
+                u.nome_completo as motorista_nome
+            FROM abastecimentos a
+            INNER JOIN diarios_bordo d ON d.id = a.diario_id
+            INNER JOIN veiculos v ON v.id = d.veiculo_id
+            INNER JOIN usuarios u ON u.id = d.usuario_id
+            ORDER BY a.registrado_em DESC
+        """,
+        nativeQuery = true
+    )
+    fun findTodos(): List<Array<Any>>
+
+    @Query(
+        value = """
+            SELECT 
+                a.*,
+                v.id as veiculo_id,
+                v.descricao as veiculo_descricao,
+                v.placa as veiculo_placa,
+                u.login as motorista_login,
+                u.nome_completo as motorista_nome
+            FROM abastecimentos a
+            INNER JOIN diarios_bordo d ON d.id = a.diario_id
+            INNER JOIN veiculos v ON v.id = d.veiculo_id
+            INNER JOIN usuarios u ON u.id = d.usuario_id
+            WHERE v.id = CAST(:veiculoId AS uuid)
+            ORDER BY a.registrado_em DESC
+        """,
         nativeQuery = true
     )
     fun findByVeiculo(
@@ -75,38 +96,23 @@ interface AbastecimentoRepository : JpaRepository<Abastecimento, UUID> {
 
     @Query(
         value = """
-        SELECT 
-            a.*,
-            v.descricao as veiculo_descricao,
-            v.placa as veiculo_placa,
-            u.nome_completo as motorista_nome
-        FROM abastecimentos a
-        INNER JOIN diarios_bordo d ON d.id = a.diario_id
-        INNER JOIN veiculos v ON v.id = d.veiculo_id
-        INNER JOIN usuarios u ON u.id = d.usuario_id
-        WHERE u.login = :login
-        ORDER BY a.registrado_em DESC
-    """,
+            SELECT 
+                a.*,
+                v.id as veiculo_id,
+                v.descricao as veiculo_descricao,
+                v.placa as veiculo_placa,
+                u.login as motorista_login,
+                u.nome_completo as motorista_nome
+            FROM abastecimentos a
+            INNER JOIN diarios_bordo d ON d.id = a.diario_id
+            INNER JOIN veiculos v ON v.id = d.veiculo_id
+            INNER JOIN usuarios u ON u.id = d.usuario_id
+            WHERE u.login = :login
+            ORDER BY a.registrado_em DESC
+        """,
         nativeQuery = true
     )
     fun findByMotorista(
         @org.springframework.data.repository.query.Param("login") login: String
     ): List<Array<Any>>
-
-    @Query(
-        value = """
-        SELECT 
-            a.*,
-            v.descricao as veiculo_descricao,
-            v.placa as veiculo_placa,
-            u.nome_completo as motorista_nome
-        FROM abastecimentos a
-        INNER JOIN diarios_bordo d ON d.id = a.diario_id
-        INNER JOIN veiculos v ON v.id = d.veiculo_id
-        INNER JOIN usuarios u ON u.id = d.usuario_id
-        ORDER BY a.registrado_em DESC
-    """,
-        nativeQuery = true
-    )
-    fun findTodos(): List<Array<Any>>
 }

@@ -10,7 +10,9 @@ data class AbastecimentoDetalhadoResponse(
     val valorTotal: Double,
     val posto: String?,
     val registradoEm: LocalDateTime?,
+    val veiculoId: String,
     val veiculoDescricao: String,
     val veiculoPlaca: String?,
+    val motoristaLogin: String,
     val motoristaNome: String
 )
