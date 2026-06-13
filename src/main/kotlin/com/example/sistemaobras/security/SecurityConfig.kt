@@ -17,10 +17,9 @@ class SecurityConfig {
     @Bean
     fun corsConfigurationSource(): CorsConfigurationSource {
         val config = CorsConfiguration()
-        config.allowedOrigins = listOf("http://localhost:4200")
+        config.allowedOrigins = listOf("*")
         config.allowedMethods = listOf("GET", "POST", "PUT", "DELETE", "OPTIONS")
         config.allowedHeaders = listOf("*")
-        config.allowCredentials = true
 
         val source = UrlBasedCorsConfigurationSource()
         source.registerCorsConfiguration("/**", config)
@@ -34,15 +33,7 @@ class SecurityConfig {
             .csrf { it.disable() }
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .authorizeHttpRequests { auth ->
-                auth.requestMatchers(
-                    "/auth/**",
-                    "/usuarios/**",
-                    "/turnos/**",
-                    "/veiculos/**",
-                    "/diarios/**",
-                    "/rastreamento/**"
-                ).permitAll()
-                auth.anyRequest().authenticated()
+                auth.anyRequest().permitAll()
             }
         return http.build()
     }
