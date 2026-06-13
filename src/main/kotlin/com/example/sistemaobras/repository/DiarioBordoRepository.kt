@@ -108,5 +108,5 @@ interface DiarioBordoRepository : JpaRepository<DiarioBordo, UUID> {
     )
     fun findDiarioAbertoDetalhado(
         @org.springframework.data.repository.query.Param("login") login: String
-    ): Array<Any>?
+    ): List<Array<Any>>
 }

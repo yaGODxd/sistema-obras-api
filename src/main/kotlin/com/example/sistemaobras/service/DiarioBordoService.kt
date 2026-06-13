@@ -73,24 +73,32 @@ class DiarioBordoService(
     }
 
     fun buscarDiarioAberto(login: String): DiarioResponse? {
-        val row = diarioRepository.findDiarioAbertoDetalhado(login) ?: return null
+        return try {
+            val rows = diarioRepository.findDiarioAbertoDetalhado(login)
+            if (rows.isEmpty()) return null
+            val row = rows[0]
 
-        return DiarioResponse(
-            id = java.util.UUID.fromString(row[0].toString()),
-            veiculoDescricao = row[1]?.toString() ?: "",
-            veiculoPlaca = row[2]?.toString(),
-            motoristaNome = row[3]?.toString() ?: "",
-            medidorInicial = row[4].toString().toDouble(),
-            medidorFinal = row[5]?.toString()?.toDoubleOrNull(),
-            medidorPercorrido = row[6]?.toString()?.toDoubleOrNull(),
-            destino = row[7]?.toString(),
-            status = row[8]?.toString() ?: "",
-            abertoEm = if (row[9] != null)
-                java.time.LocalDateTime.parse(row[9].toString().replace(" ", "T"))
-            else null,
-            fechadoEm = if (row[10] != null)
-                java.time.LocalDateTime.parse(row[10].toString().replace(" ", "T"))
-            else null
-        )
+            DiarioResponse(
+                id = java.util.UUID.fromString(row[0].toString()),
+                veiculoDescricao = row[1]?.toString() ?: "",
+                veiculoPlaca = row[2]?.toString(),
+                motoristaNome = row[3]?.toString() ?: "",
+                medidorInicial = row[4].toString().toDouble(),
+                medidorFinal = row[5]?.toString()?.toDoubleOrNull(),
+                medidorPercorrido = row[6]?.toString()?.toDoubleOrNull(),
+                destino = row[7]?.toString(),
+                status = row[8]?.toString() ?: "",
+                abertoEm = if (row[9] != null)
+                    java.time.LocalDateTime.parse(row[9].toString().replace(" ", "T"))
+                else null,
+                fechadoEm = if (row[10] != null)
+                    java.time.LocalDateTime.parse(row[10].toString().replace(" ", "T"))
+                else null
+            )
+        } catch (e: Exception) {
+            println("ERRO buscarDiarioAberto: ${e.message}")
+            e.printStackTrace()
+            null
+        }
     }
 }
