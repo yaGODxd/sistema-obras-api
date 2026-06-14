@@ -15,7 +15,8 @@ import java.util.UUID
 class ManutencaoService(
     private val manutencaoRepository: ManutencaoRepository,
     private val manutencaoPecaRepository: ManutencaoPecaRepository,
-    private val veiculoRepository: VeiculoRepository
+    private val veiculoRepository: VeiculoRepository,
+    private val logService: LogService
 ) {
 
     fun abrir(request: ManutencaoRequest): ManutencaoResponse {
@@ -44,8 +45,15 @@ class ManutencaoService(
             ))
         }
 
-        // Muda status do veículo para em_manutencao
         veiculoRepository.atualizarStatus(request.veiculoId, "em_manutencao")
+
+        logService.registrar(
+            usuarioLogin = "sistema",
+            usuarioNome = "Sistema",
+            acao = "MANUTENCAO_ABERTA",
+            descricao = "Manutenção aberta — Veículo: ${veiculo.descricao}, " +
+                    "Tipo: ${request.tipo}, Descrição: ${request.descricao}"
+        )
 
         return toResponse(manutencao, pecas, veiculo.descricao, veiculo.placa)
     }
@@ -63,31 +71,34 @@ class ManutencaoService(
 
         manutencaoRepository.save(atualizada)
 
-        // Se concluída volta veículo para disponível
         if (request.status == "concluida") {
             veiculoRepository.atualizarStatus(manutencao.veiculoId.toString(), "disponivel")
         }
 
         val pecas = manutencaoPecaRepository.findByManutencaoId(manutencao.id!!)
         val veiculo = veiculoRepository.findById(manutencao.veiculoId!!).orElseThrow()
+
+        logService.registrar(
+            usuarioLogin = "sistema",
+            usuarioNome = "Sistema",
+            acao = "MANUTENCAO_STATUS",
+            descricao = "Status da manutenção atualizado para '${request.status}' — Veículo: ${veiculo.descricao}"
+        )
+
         return toResponse(atualizada, pecas, veiculo.descricao, veiculo.placa)
     }
 
     fun listarTodas(): List<ManutencaoResponse> {
-        return manutencaoRepository.findAll()
-            .sortedByDescending { it.abertaEm }
-            .map { toResponseSimples(it) }
+        return manutencaoRepository.findAll().sortedByDescending { it.abertaEm }.map { toResponseSimples(it) }
     }
 
     fun listarAbertas(): List<ManutencaoResponse> {
-        return manutencaoRepository.findAbertas()
-            .map { toResponseSimples(it) }
+        return manutencaoRepository.findAbertas().map { toResponseSimples(it) }
     }
 
     fun listarPorVeiculo(veiculoId: String): List<ManutencaoResponse> {
         return manutencaoRepository.findByVeiculoId(UUID.fromString(veiculoId))
-            .sortedByDescending { it.abertaEm }
-            .map { toResponseSimples(it) }
+            .sortedByDescending { it.abertaEm }.map { toResponseSimples(it) }
     }
 
     fun buscarPorId(id: String): ManutencaoResponse {

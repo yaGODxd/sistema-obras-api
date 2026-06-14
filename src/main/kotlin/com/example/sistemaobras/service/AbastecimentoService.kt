@@ -11,7 +11,8 @@ import java.util.UUID
 @Service
 class AbastecimentoService(
     private val abastecimentoRepository: AbastecimentoRepository,
-    private val diarioRepository: DiarioBordoRepository
+    private val diarioRepository: DiarioBordoRepository,
+    private val logService: LogService
 ) {
 
     fun registrar(request: AbastecimentoRequest): AbastecimentoResponse {
@@ -24,6 +25,16 @@ class AbastecimentoService(
             litros = request.litros,
             valorTotal = request.valorTotal,
             posto = request.posto
+        )
+
+        logService.registrar(
+            usuarioLogin = request.loginMotorista,
+            usuarioNome = null,
+            acao = "ABASTECIMENTO",
+            descricao = "Abastecimento registrado — ${request.tipoCombustivel}, " +
+                    "${"%.1f".format(request.litros)} L, " +
+                    "R$ ${"%.2f".format(request.valorTotal)}" +
+                    if (!request.posto.isNullOrEmpty()) ", Posto: ${request.posto}" else ""
         )
 
         return AbastecimentoResponse(

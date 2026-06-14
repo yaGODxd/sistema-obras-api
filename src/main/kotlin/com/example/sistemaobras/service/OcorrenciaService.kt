@@ -17,7 +17,8 @@ class OcorrenciaService(
     private val ocorrenciaRepository: OcorrenciaRepository,
     private val diarioBordoRepository: DiarioBordoRepository,
     private val usuarioRepository: UsuarioRepository,
-    private val veiculoRepository: VeiculoRepository
+    private val veiculoRepository: VeiculoRepository,
+    private val logService: LogService
 ) {
 
     fun registrar(request: OcorrenciaRequest): OcorrenciaResponse {
@@ -33,35 +34,36 @@ class OcorrenciaService(
         )
 
         val salva = ocorrenciaRepository.save(ocorrencia)
+
+        logService.registrar(
+            usuarioLogin = request.loginMotorista,
+            usuarioNome = null,
+            acao = "OCORRENCIA",
+            descricao = "Ocorrência registrada — Tipo: ${request.tipo}, Descrição: ${request.descricao}"
+        )
+
         return toResponse(salva)
     }
 
     fun listarPorDiario(diarioId: String): List<OcorrenciaResponse> {
-        return ocorrenciaRepository.findByDiarioId(UUID.fromString(diarioId))
-            .map { toResponse(it) }
+        return ocorrenciaRepository.findByDiarioId(UUID.fromString(diarioId)).map { toResponse(it) }
     }
 
     fun listarDiarioAberto(login: String): List<OcorrenciaResponse> {
-        val diario = diarioBordoRepository.findDiarioAberto(login)
-            ?: return emptyList()
-        return ocorrenciaRepository.findByDiarioId(diario.id!!)
-            .map { toResponse(it) }
+        val diario = diarioBordoRepository.findDiarioAberto(login) ?: return emptyList()
+        return ocorrenciaRepository.findByDiarioId(diario.id!!).map { toResponse(it) }
     }
 
     fun listarPorVeiculo(veiculoId: String): List<OcorrenciaDetalhadaResponse> {
-        return ocorrenciaRepository.findByVeiculoId(UUID.fromString(veiculoId))
-            .map { toDetalhadaResponse(it) }
+        return ocorrenciaRepository.findByVeiculoId(UUID.fromString(veiculoId)).map { toDetalhadaResponse(it) }
     }
 
     fun listarPorMotorista(login: String): List<OcorrenciaDetalhadaResponse> {
-        return ocorrenciaRepository.findByMotoristaLogin(login)
-            .map { toDetalhadaResponse(it) }
+        return ocorrenciaRepository.findByMotoristaLogin(login).map { toDetalhadaResponse(it) }
     }
 
     fun listarTodas(): List<OcorrenciaDetalhadaResponse> {
-        return ocorrenciaRepository.findAll()
-            .sortedByDescending { it.registradoEm }
-            .map { toDetalhadaResponse(it) }
+        return ocorrenciaRepository.findAll().sortedByDescending { it.registradoEm }.map { toDetalhadaResponse(it) }
     }
 
     private fun toResponse(o: Ocorrencia) = OcorrenciaResponse(

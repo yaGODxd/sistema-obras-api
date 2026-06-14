@@ -15,7 +15,8 @@ import org.springframework.stereotype.Service
 @Service
 class UsuarioService(
     private val usuarioRepository: UsuarioRepository,
-    private val jwtService: JwtService
+    private val jwtService: JwtService,
+    private val logService: LogService
 ) {
     private val bcrypt = BCryptPasswordEncoder()
 
@@ -30,6 +31,13 @@ class UsuarioService(
             throw RuntimeException("Senha incorreta")
 
         val token = jwtService.gerarToken(usuario.login, usuario.perfil.name)
+
+        logService.registrar(
+            usuarioLogin = usuario.login,
+            usuarioNome = usuario.nomeCompleto,
+            acao = "LOGIN",
+            descricao = "Usuário realizou login no sistema"
+        )
 
         return LoginResponse(
             token = token,
@@ -53,6 +61,13 @@ class UsuarioService(
 
         val token = jwtService.gerarToken(request.login, request.perfil)
 
+        logService.registrar(
+            usuarioLogin = request.login,
+            usuarioNome = request.nomeCompleto,
+            acao = "CADASTRO",
+            descricao = "Novo usuário cadastrado no sistema com perfil ${request.perfil}"
+        )
+
         return LoginResponse(
             token = token,
             nome = request.nomeCompleto,
@@ -70,10 +85,15 @@ class UsuarioService(
 
         if (request.nomeCompleto != null) {
             usuarioRepository.atualizarNome(login, request.nomeCompleto)
+            logService.registrar(
+                usuarioLogin = login,
+                usuarioNome = request.nomeCompleto,
+                acao = "ATUALIZAR_PERFIL",
+                descricao = "Usuário atualizou seu perfil"
+            )
         }
 
         val atualizado = usuarioRepository.findByLogin(login)!!
-
         return UsuarioResponse(
             id = atualizado.id,
             nomeCompleto = atualizado.nomeCompleto,
@@ -81,14 +101,11 @@ class UsuarioService(
             perfil = atualizado.perfil.name,
             fotoPerfil = atualizado.fotoPerfil
         )
-
-
     }
 
     fun buscarPerfil(login: String): UsuarioResponse {
         val usuario = usuarioRepository.findByLogin(login)
             ?: throw RuntimeException("Usuário não encontrado")
-
         return UsuarioResponse(
             id = usuario.id,
             nomeCompleto = usuario.nomeCompleto,

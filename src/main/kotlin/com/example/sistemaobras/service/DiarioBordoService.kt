@@ -12,7 +12,8 @@ import org.springframework.stereotype.Service
 class DiarioBordoService(
     private val diarioRepository: DiarioBordoRepository,
     private val turnoRepository: TurnoRepository,
-    private val veiculoRepository: VeiculoRepository
+    private val veiculoRepository: VeiculoRepository,
+    private val logService: LogService
 ) {
 
     fun abrirDiario(request: AbrirDiarioRequest): DiarioResponse {
@@ -32,10 +33,22 @@ class DiarioBordoService(
 
         val diario = diarioRepository.findDiarioAberto(request.loginMotorista)!!
 
+        val veiculo = try {
+            veiculoRepository.findById(java.util.UUID.fromString(request.veiculoId)).orElse(null)
+        } catch (e: Exception) { null }
+
+        logService.registrar(
+            usuarioLogin = request.loginMotorista,
+            usuarioNome = null,
+            acao = "ABRIR_DIARIO",
+            descricao = "Diário aberto — Veículo: ${veiculo?.descricao ?: request.veiculoId}" +
+                    if (!request.destino.isNullOrEmpty()) ", Destino: ${request.destino}" else ""
+        )
+
         return DiarioResponse(
             id = diario.id,
-            veiculoDescricao = "",
-            veiculoPlaca = null,
+            veiculoDescricao = veiculo?.descricao ?: "",
+            veiculoPlaca = veiculo?.placa,
             motoristaNome = request.loginMotorista,
             medidorInicial = diario.medidorInicial.toDouble(),
             medidorFinal = null,
@@ -57,6 +70,15 @@ class DiarioBordoService(
             observacao = request.observacaoFechamento
         )
 
+        val percorrido = request.medidorFinal - diario.medidorInicial.toDouble()
+
+        logService.registrar(
+            usuarioLogin = login,
+            usuarioNome = null,
+            acao = "FECHAR_DIARIO",
+            descricao = "Diário fechado — Medidor final: ${request.medidorFinal}, Percorrido: ${"%.1f".format(percorrido)}"
+        )
+
         return DiarioResponse(
             id = diario.id,
             veiculoDescricao = "",
@@ -64,7 +86,7 @@ class DiarioBordoService(
             motoristaNome = login,
             medidorInicial = diario.medidorInicial.toDouble(),
             medidorFinal = request.medidorFinal,
-            medidorPercorrido = request.medidorFinal - diario.medidorInicial.toDouble(),
+            medidorPercorrido = percorrido,
             destino = diario.destino,
             status = "fechado",
             abertoEm = diario.abertoEm,
@@ -77,7 +99,6 @@ class DiarioBordoService(
             val rows = diarioRepository.findDiarioAbertoDetalhado(login)
             if (rows.isEmpty()) return null
             val row = rows[0]
-
             DiarioResponse(
                 id = java.util.UUID.fromString(row[0].toString()),
                 veiculoDescricao = row[1]?.toString() ?: "",
@@ -97,7 +118,6 @@ class DiarioBordoService(
             )
         } catch (e: Exception) {
             println("ERRO buscarDiarioAberto: ${e.message}")
-            e.printStackTrace()
             null
         }
     }
