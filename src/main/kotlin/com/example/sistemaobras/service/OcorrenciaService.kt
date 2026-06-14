@@ -88,6 +88,7 @@ class OcorrenciaService(
             registradoEm = o.registradoEm,
             motoristaNome = usuario.nomeCompleto ?: usuario.login,
             motoristaLogin = usuario.login,
+            veiculoId = veiculo.id,
             veiculoDescricao = veiculo.descricao,
             veiculoPlaca = veiculo.placa
         )

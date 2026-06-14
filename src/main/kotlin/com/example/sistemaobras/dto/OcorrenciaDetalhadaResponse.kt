@@ -13,6 +13,7 @@ data class OcorrenciaDetalhadaResponse(
     val registradoEm: LocalDateTime,
     val motoristaNome: String,
     val motoristaLogin: String,
+    val veiculoId: UUID?,
     val veiculoDescricao: String,
     val veiculoPlaca: String?
 )
