@@ -2,6 +2,7 @@ package com.example.sistemaobras.controller
 
 import com.example.sistemaobras.dto.AbrirDiarioRequest
 import com.example.sistemaobras.dto.DiarioResponse
+import com.example.sistemaobras.dto.DiarioResumoMensalResponse
 import com.example.sistemaobras.dto.FecharDiarioRequest
 import com.example.sistemaobras.service.DiarioBordoService
 import org.springframework.http.ResponseEntity
@@ -39,5 +40,23 @@ class DiarioBordoController(
         val diario = diarioService.buscarDiarioAberto(login)
         return if (diario != null) ResponseEntity.ok(diario)
         else ResponseEntity.status(404).build()
+    }
+
+    @GetMapping
+    fun listarDiarios(
+        @RequestParam(required = false) veiculoId: String?,
+        @RequestParam(required = false) mes: Int?,
+        @RequestParam(required = false) ano: Int?
+    ): ResponseEntity<List<DiarioResponse>> {
+        return ResponseEntity.ok(diarioService.listarDiarios(veiculoId, mes, ano))
+    }
+
+    @GetMapping("/resumo-mensal")
+    fun listarResumoMensal(
+        @RequestParam(required = false) veiculoId: String?,
+        @RequestParam(required = false) mes: Int?,
+        @RequestParam(required = false) ano: Int?
+    ): ResponseEntity<List<DiarioResumoMensalResponse>> {
+        return ResponseEntity.ok(diarioService.listarResumoMensal(veiculoId, mes, ano))
     }
 }

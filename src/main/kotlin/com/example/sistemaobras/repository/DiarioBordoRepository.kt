@@ -109,4 +109,66 @@ interface DiarioBordoRepository : JpaRepository<DiarioBordo, UUID> {
     fun findDiarioAbertoDetalhado(
         @org.springframework.data.repository.query.Param("login") login: String
     ): List<Array<Any>>
+
+    @Query(
+        value = """
+        SELECT 
+            d.id,
+            v.descricao as veiculo_descricao,
+            v.placa as veiculo_placa,
+            u.nome_completo as motorista_nome,
+            d.medidor_inicial,
+            d.medidor_final,
+            d.medidor_percorrido,
+            d.destino,
+            d.status,
+            d.aberto_em,
+            d.fechado_em
+        FROM diarios_bordo d
+        INNER JOIN usuarios u ON u.id = d.usuario_id
+        INNER JOIN veiculos v ON v.id = d.veiculo_id
+        WHERE (:veiculoId IS NULL OR d.veiculo_id = CAST(:veiculoId AS uuid))
+        AND (
+            :mes IS NULL OR (
+                EXTRACT(MONTH FROM d.aberto_em) = :mes
+                AND EXTRACT(YEAR FROM d.aberto_em) = :ano
+            )
+        )
+        ORDER BY d.aberto_em DESC
+    """,
+        nativeQuery = true
+    )
+    fun findDiariosPorFiltro(
+        @org.springframework.data.repository.query.Param("veiculoId") veiculoId: String?,
+        @org.springframework.data.repository.query.Param("mes") mes: Int?,
+        @org.springframework.data.repository.query.Param("ano") ano: Int?
+    ): List<Array<Any>>
+
+    @Query(
+        value = """
+        SELECT 
+            v.id as veiculo_id,
+            v.descricao as veiculo_descricao,
+            v.placa as veiculo_placa,
+            EXTRACT(MONTH FROM d.aberto_em) as mes,
+            EXTRACT(YEAR FROM d.aberto_em) as ano,
+            COUNT(d.id) as total_diarios,
+            MIN(d.medidor_inicial) as primeiro_medidor,
+            MAX(COALESCE(d.medidor_final, d.medidor_inicial)) as ultimo_medidor,
+            COALESCE(SUM(d.medidor_percorrido), 0) as total_percorrido
+        FROM diarios_bordo d
+        INNER JOIN veiculos v ON v.id = d.veiculo_id
+        WHERE (:ano IS NULL OR EXTRACT(YEAR FROM d.aberto_em) = :ano)
+        AND (:mes IS NULL OR EXTRACT(MONTH FROM d.aberto_em) = :mes)
+        AND (:veiculoId IS NULL OR d.veiculo_id = CAST(:veiculoId AS uuid))
+        GROUP BY v.id, v.descricao, v.placa, EXTRACT(MONTH FROM d.aberto_em), EXTRACT(YEAR FROM d.aberto_em)
+        ORDER BY ano DESC, mes DESC, v.descricao
+    """,
+        nativeQuery = true
+    )
+    fun findResumoMensal(
+        @org.springframework.data.repository.query.Param("veiculoId") veiculoId: String?,
+        @org.springframework.data.repository.query.Param("mes") mes: Int?,
+        @org.springframework.data.repository.query.Param("ano") ano: Int?
+    ): List<Array<Any>>
 }

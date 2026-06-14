@@ -2,6 +2,7 @@ package com.example.sistemaobras.service
 
 import com.example.sistemaobras.dto.AbrirDiarioRequest
 import com.example.sistemaobras.dto.DiarioResponse
+import com.example.sistemaobras.dto.DiarioResumoMensalResponse
 import com.example.sistemaobras.dto.FecharDiarioRequest
 import com.example.sistemaobras.repository.DiarioBordoRepository
 import com.example.sistemaobras.repository.TurnoRepository
@@ -119,6 +120,44 @@ class DiarioBordoService(
         } catch (e: Exception) {
             println("ERRO buscarDiarioAberto: ${e.message}")
             null
+        }
+    }
+
+    fun listarDiarios(veiculoId: String?, mes: Int?, ano: Int?): List<DiarioResponse> {
+        return diarioRepository.findDiariosPorFiltro(veiculoId, mes, ano).map { row ->
+            DiarioResponse(
+                id = java.util.UUID.fromString(row[0].toString()),
+                veiculoDescricao = row[1]?.toString() ?: "",
+                veiculoPlaca = row[2]?.toString(),
+                motoristaNome = row[3]?.toString() ?: "",
+                medidorInicial = row[4].toString().toDouble(),
+                medidorFinal = row[5]?.toString()?.toDoubleOrNull(),
+                medidorPercorrido = row[6]?.toString()?.toDoubleOrNull(),
+                destino = row[7]?.toString(),
+                status = row[8]?.toString() ?: "",
+                abertoEm = if (row[9] != null)
+                    java.time.LocalDateTime.parse(row[9].toString().replace(" ", "T"))
+                else null,
+                fechadoEm = if (row[10] != null)
+                    java.time.LocalDateTime.parse(row[10].toString().replace(" ", "T"))
+                else null
+            )
+        }
+    }
+
+    fun listarResumoMensal(veiculoId: String?, mes: Int?, ano: Int?): List<DiarioResumoMensalResponse> {
+        return diarioRepository.findResumoMensal(veiculoId, mes, ano).map { row ->
+            DiarioResumoMensalResponse(
+                veiculoId = row[0].toString(),
+                veiculoDescricao = row[1].toString(),
+                veiculoPlaca = row[2]?.toString(),
+                mes = row[3].toString().toDouble().toInt(),
+                ano = row[4].toString().toDouble().toInt(),
+                totalDiarios = row[5].toString().toDouble().toInt(),
+                primeiroMedidor = row[6].toString().toDouble(),
+                ultimoMedidor = row[7].toString().toDouble(),
+                totalPercorrido = row[8].toString().toDouble()
+            )
         }
     }
 }
