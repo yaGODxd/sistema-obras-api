@@ -83,4 +83,15 @@ interface VeiculoRepository : JpaRepository<Veiculo, UUID> {
     fun inativarVeiculo(
         @org.springframework.data.repository.query.Param("id") id: String
     )
+
+    @Modifying
+    @Transactional
+    @Query(
+        value = "UPDATE veiculos SET status = :status WHERE id = CAST(:id AS uuid)",
+        nativeQuery = true
+    )
+    fun atualizarStatus(
+        @org.springframework.data.repository.query.Param("id") id: String,
+        @org.springframework.data.repository.query.Param("status") status: String
+    )
 }
