@@ -7,5 +7,6 @@ data class UsuarioResponse(
     val nomeCompleto: String,
     val login: String,
     val perfil: String,
-    val fotoPerfil: String?
+    val fotoPerfil: String? = null,
+    val ativo: Boolean = true
 )

@@ -65,4 +65,15 @@ interface UsuarioRepository : JpaRepository<Usuario, UUID> {
         nativeQuery = true
     )
     fun findMotoristasOnline(): List<Array<Any>>
+
+    @Modifying
+    @Transactional
+    @Query(
+        value = "UPDATE usuarios SET ativo = :ativo, atualizado_em = NOW() WHERE login = :login",
+        nativeQuery = true
+    )
+    fun alterarAtivo(
+        @org.springframework.data.repository.query.Param("login") login: String,
+        @org.springframework.data.repository.query.Param("ativo") ativo: Boolean
+    )
 }

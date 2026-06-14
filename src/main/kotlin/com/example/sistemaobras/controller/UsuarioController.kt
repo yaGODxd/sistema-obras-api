@@ -37,4 +37,22 @@ class UsuarioController(
             ResponseEntity.status(400).build()
         }
     }
+
+    @GetMapping
+    fun listarTodos(): ResponseEntity<List<UsuarioResponse>> {
+        return ResponseEntity.ok(usuarioService.listarTodos())
+    }
+
+    @PutMapping("/{login}/ativo")
+    fun alterarAtivo(
+        @PathVariable login: String,
+        @RequestBody body: Map<String, Boolean>
+    ): ResponseEntity<Void> {
+        return try {
+            usuarioService.alterarAtivo(login, body["ativo"] ?: true)
+            ResponseEntity.ok().build()
+        } catch (e: RuntimeException) {
+            ResponseEntity.status(400).build()
+        }
+    }
 }

@@ -128,4 +128,30 @@ class UsuarioService(
             )
         }
     }
+
+    fun listarTodos(): List<UsuarioResponse> {
+        return usuarioRepository.findAll().map { u ->
+            UsuarioResponse(
+                id = u.id,
+                nomeCompleto = u.nomeCompleto,
+                login = u.login,
+                perfil = u.perfil.name,
+                fotoPerfil = u.fotoPerfil,
+                ativo = u.ativo
+            )
+        }
+    }
+
+    fun alterarAtivo(login: String, ativo: Boolean) {
+        usuarioRepository.findByLogin(login)
+            ?: throw RuntimeException("Usuário não encontrado")
+        usuarioRepository.alterarAtivo(login, ativo)
+
+        logService.registrar(
+            usuarioLogin = "sistema",
+            usuarioNome = "Sistema",
+            acao = if (ativo) "USUARIO_ATIVADO" else "USUARIO_DESATIVADO",
+            descricao = "Usuário '$login' foi ${if (ativo) "ativado" else "desativado"}"
+        )
+    }
 }
