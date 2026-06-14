@@ -7,6 +7,7 @@ data class LogResponse(
     val id: UUID?,
     val usuarioLogin: String,
     val usuarioNome: String?,
+    val usuarioFoto: String? = null,
     val acao: String,
     val descricao: String,
     val ip: String?,

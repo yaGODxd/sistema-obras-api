@@ -76,4 +76,12 @@ interface UsuarioRepository : JpaRepository<Usuario, UUID> {
         @org.springframework.data.repository.query.Param("login") login: String,
         @org.springframework.data.repository.query.Param("ativo") ativo: Boolean
     )
+
+    @Query(
+        value = "SELECT foto_perfil FROM usuarios WHERE login = :login",
+        nativeQuery = true
+    )
+    fun findFotoByLogin(
+        @org.springframework.data.repository.query.Param("login") login: String
+    ): String?
 }

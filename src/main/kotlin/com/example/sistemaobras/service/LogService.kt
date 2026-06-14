@@ -3,12 +3,14 @@ package com.example.sistemaobras.service
 import com.example.sistemaobras.dto.LogResponse
 import com.example.sistemaobras.entity.Log
 import com.example.sistemaobras.repository.LogRepository
+import com.example.sistemaobras.repository.UsuarioRepository
 import org.springframework.stereotype.Service
 import java.time.LocalDateTime
 
 @Service
 class LogService(
-    private val logRepository: LogRepository
+    private val logRepository: LogRepository,
+    private val usuarioRepository: UsuarioRepository
 ) {
 
     fun registrar(
@@ -49,6 +51,9 @@ class LogService(
         id = l.id,
         usuarioLogin = l.usuarioLogin,
         usuarioNome = l.usuarioNome,
+        usuarioFoto = try {
+            usuarioRepository.findFotoByLogin(l.usuarioLogin)
+        } catch (e: Exception) { null },
         acao = l.acao,
         descricao = l.descricao,
         ip = l.ip,

@@ -80,6 +80,7 @@ class OcorrenciaService(
         val diario = diarioBordoRepository.findById(o.diarioId!!).orElseThrow()
         val usuario = usuarioRepository.findById(diario.usuarioId!!).orElseThrow()
         val veiculo = veiculoRepository.findById(diario.veiculoId!!).orElseThrow()
+        val foto = try { usuarioRepository.findFotoByLogin(usuario.login) } catch (e: Exception) { null }
         return OcorrenciaDetalhadaResponse(
             id = o.id,
             diarioId = o.diarioId,
@@ -87,9 +88,10 @@ class OcorrenciaService(
             descricao = o.descricao,
             latitude = o.latitude?.toDouble(),
             longitude = o.longitude?.toDouble(),
-            registradoEm = o.registradoEm,
+            registradoEm = o.registradoEm!!,
             motoristaNome = usuario.nomeCompleto ?: usuario.login,
             motoristaLogin = usuario.login,
+            motoristaFoto = foto,
             veiculoId = veiculo.id,
             veiculoDescricao = veiculo.descricao,
             veiculoPlaca = veiculo.placa

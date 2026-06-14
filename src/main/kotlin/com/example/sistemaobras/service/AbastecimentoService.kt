@@ -5,6 +5,7 @@ import com.example.sistemaobras.dto.AbastecimentoRequest
 import com.example.sistemaobras.dto.AbastecimentoResponse
 import com.example.sistemaobras.repository.AbastecimentoRepository
 import com.example.sistemaobras.repository.DiarioBordoRepository
+import com.example.sistemaobras.repository.UsuarioRepository
 import org.springframework.stereotype.Service
 import java.util.UUID
 
@@ -12,6 +13,7 @@ import java.util.UUID
 class AbastecimentoService(
     private val abastecimentoRepository: AbastecimentoRepository,
     private val diarioRepository: DiarioBordoRepository,
+    private val usuarioRepository: UsuarioRepository,
     private val logService: LogService
 ) {
 
@@ -74,6 +76,8 @@ class AbastecimentoService(
     }
 
     private fun mapearRow(row: Array<Any>): AbastecimentoDetalhadoResponse {
+        val motoristaLogin = row[11].toString()
+        val foto = try { usuarioRepository.findFotoByLogin(motoristaLogin) } catch (e: Exception) { null }
         return AbastecimentoDetalhadoResponse(
             id = UUID.fromString(row[0].toString()),
             tipoCombustivel = row[2].toString(),
@@ -86,9 +90,12 @@ class AbastecimentoService(
             veiculoId = row[8].toString(),
             veiculoDescricao = row[9].toString(),
             veiculoPlaca = row[10]?.toString(),
-            motoristaLogin = row[11].toString(),
-            motoristaNome = row[12].toString()
+            motoristaLogin = motoristaLogin,
+            motoristaNome = row[12].toString(),
+            motoristaFoto = foto
         )
+
+
     }
 
     fun listarTodos(): List<AbastecimentoDetalhadoResponse> {
