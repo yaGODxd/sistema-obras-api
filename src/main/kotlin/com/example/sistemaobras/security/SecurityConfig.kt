@@ -44,7 +44,8 @@ class SecurityConfig {
                     "/veiculos/**",
                     "/diarios/**",
                     "/rastreamento/**",
-                    "/abastecimentos/**"
+                    "/abastecimentos/**",
+                    "/ocorrencias/**"
                 ).permitAll()
                 auth.anyRequest().authenticated()
             }
