@@ -37,7 +37,23 @@ class SecurityConfig {
             .csrf { it.disable() }
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .authorizeHttpRequests { auth ->
-                auth.anyRequest().permitAll()
+                auth.requestMatchers(
+                    "/auth/**",
+                    "/usuarios/**",
+                    "/turnos/**",
+                    "/veiculos/**",
+                    "/diarios/**",
+                    "/rastreamento/**",
+                    "/abastecimentos/**",
+                    "/ocorrencias/**",
+                    "/manutencoes/**",
+                    "/logs/**",
+                    "/secretarias/**",
+                    "/veiculos/comboios",
+
+
+                    ).permitAll()
+                auth.anyRequest().authenticated()
             }
         return http.build()
     }

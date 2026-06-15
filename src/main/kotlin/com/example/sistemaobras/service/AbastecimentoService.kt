@@ -79,11 +79,8 @@ class AbastecimentoService(
     }
 
     private fun mapearRow(row: Array<Any>): AbastecimentoDetalhadoResponse {
-        val motoristaLogin = row[11].toString()
+        val motoristaLogin = row[12].toString()
         val foto = try { usuarioRepository.findFotoByLogin(motoristaLogin) } catch (e: Exception) { null }
-
-        println("ROW SIZE: ${row.size}")
-        row.forEachIndexed { i, v -> println("[$i] = $v") }
 
         return AbastecimentoDetalhadoResponse(
             id = UUID.fromString(row[0].toString()),
@@ -94,14 +91,14 @@ class AbastecimentoService(
             registradoEm = if (row[7] != null)
                 java.time.LocalDateTime.parse(row[7].toString().replace(" ", "T"))
             else null,
-            veiculoId = row[8].toString(),
-            veiculoDescricao = row[9].toString(),
-            veiculoPlaca = row[10]?.toString(),
+            veiculoAbastecidoId = row[8]?.toString(),
+            veiculoId = row[9].toString(),
+            veiculoDescricao = row[10].toString(),
+            veiculoPlaca = row[11]?.toString(),
             motoristaLogin = motoristaLogin,
-            motoristaNome = row[12].toString(),
+            motoristaNome = row[13].toString(),
             motoristaFoto = foto,
-            veiculoAbastecidoId = row[6]?.toString(),
-            veiculoAbastecidoDescricao = row[13]?.toString()
+            veiculoAbastecidoDescricao = row[14]?.toString()
         )
     }
 
