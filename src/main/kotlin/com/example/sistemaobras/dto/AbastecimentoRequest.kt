@@ -5,5 +5,6 @@ data class AbastecimentoRequest(
     val tipoCombustivel: String,
     val litros: Double,
     val valorTotal: Double,
-    val posto: String? = null
+    val posto: String? = null,
+    val veiculoAbastecidoId: String? = null
 )

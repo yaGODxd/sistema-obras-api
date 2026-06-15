@@ -71,8 +71,10 @@ class ManutencaoService(
 
         manutencaoRepository.save(atualizada)
 
-        if (request.status == "concluida") {
-            veiculoRepository.atualizarStatus(manutencao.veiculoId.toString(), "disponivel")
+        when (request.status) {
+            "em_andamento" -> veiculoRepository.atualizarStatus(manutencao.veiculoId.toString(), "em_manutencao")
+            "concluida" -> veiculoRepository.atualizarStatus(manutencao.veiculoId.toString(), "disponivel")
+            "aberta" -> veiculoRepository.atualizarStatus(manutencao.veiculoId.toString(), "em_manutencao")
         }
 
         val pecas = manutencaoPecaRepository.findByManutencaoId(manutencao.id!!)

@@ -15,5 +15,7 @@ data class AbastecimentoDetalhadoResponse(
     val veiculoPlaca: String?,
     val motoristaLogin: String,
     val motoristaNome: String,
-    val motoristaFoto: String? = null
+    val motoristaFoto: String? = null,
+    val veiculoAbastecidoId: String? = null,
+    val veiculoAbastecidoDescricao: String? = null
 )

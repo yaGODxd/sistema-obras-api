@@ -69,4 +69,8 @@ class VeiculoController(
             ResponseEntity.status(400).build()
         }
     }
+    @GetMapping("/comboios")
+    fun listarComboios(): ResponseEntity<List<VeiculoResponse>> {
+        return ResponseEntity.ok(veiculoService.listarComboios())
+    }
 }

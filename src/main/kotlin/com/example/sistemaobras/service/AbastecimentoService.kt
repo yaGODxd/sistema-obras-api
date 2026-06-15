@@ -26,17 +26,20 @@ class AbastecimentoService(
             tipoCombustivel = request.tipoCombustivel,
             litros = request.litros,
             valorTotal = request.valorTotal,
-            posto = request.posto
+            posto = request.posto,
+            veiculoAbastecidoId = request.veiculoAbastecidoId
         )
+
+        val descLog = "Abastecimento registrado — ${request.tipoCombustivel}, " +
+                "${"%.1f".format(request.litros)} L, R$ ${"%.2f".format(request.valorTotal)}" +
+                if (!request.posto.isNullOrEmpty()) ", Posto: ${request.posto}" else "" +
+                        if (!request.veiculoAbastecidoId.isNullOrEmpty()) " (Comboio)" else ""
 
         logService.registrar(
             usuarioLogin = request.loginMotorista,
             usuarioNome = null,
             acao = "ABASTECIMENTO",
-            descricao = "Abastecimento registrado — ${request.tipoCombustivel}, " +
-                    "${"%.1f".format(request.litros)} L, " +
-                    "R$ ${"%.2f".format(request.valorTotal)}" +
-                    if (!request.posto.isNullOrEmpty()) ", Posto: ${request.posto}" else ""
+            descricao = descLog
         )
 
         return AbastecimentoResponse(
@@ -92,10 +95,10 @@ class AbastecimentoService(
             veiculoPlaca = row[10]?.toString(),
             motoristaLogin = motoristaLogin,
             motoristaNome = row[12].toString(),
-            motoristaFoto = foto
+            motoristaFoto = foto,
+            veiculoAbastecidoId = row[6]?.toString(),
+            veiculoAbastecidoDescricao = row[13]?.toString()
         )
-
-
     }
 
     fun listarTodos(): List<AbastecimentoDetalhadoResponse> {

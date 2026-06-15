@@ -27,6 +27,9 @@ data class Abastecimento(
     @Column(name = "posto")
     val posto: String? = null,
 
+    @Column(name = "veiculo_abastecido_id")
+    val veiculoAbastecidoId: UUID? = null,
+
     @Column(name = "sincronizado", nullable = false)
     val sincronizado: Boolean = false,
 

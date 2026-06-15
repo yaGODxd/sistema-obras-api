@@ -49,5 +49,8 @@ data class Veiculo(
     val criadoEm: LocalDateTime = LocalDateTime.now(),
 
     @Column(name = "atualizado_em", nullable = false)
-    val atualizadoEm: LocalDateTime = LocalDateTime.now()
+    val atualizadoEm: LocalDateTime = LocalDateTime.now(),
+
+    @Column(name = "comboio", nullable = false)
+    val comboio: Boolean = false,
 )

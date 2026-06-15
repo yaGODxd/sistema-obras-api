@@ -15,12 +15,12 @@ interface AbastecimentoRepository : JpaRepository<Abastecimento, UUID> {
     @Transactional
     @Query(
         value = """
-            INSERT INTO abastecimentos (diario_id, tipo_combustivel, litros, valor_total, posto, registrado_em)
-            SELECT d.id, :tipoCombustivel, :litros, :valorTotal, :posto, NOW()
-            FROM diarios_bordo d
-            INNER JOIN usuarios u ON u.id = d.usuario_id
-            WHERE u.login = :login AND d.status = 'aberto'
-        """,
+        INSERT INTO abastecimentos (diario_id, tipo_combustivel, litros, valor_total, posto, veiculo_abastecido_id, registrado_em)
+        SELECT d.id, :tipoCombustivel, :litros, :valorTotal, :posto, CAST(:veiculoAbastecidoId AS uuid), NOW()
+        FROM diarios_bordo d
+        INNER JOIN usuarios u ON u.id = d.usuario_id
+        WHERE u.login = :login AND d.status = 'aberto'
+    """,
         nativeQuery = true
     )
     fun inserirAbastecimento(
@@ -28,7 +28,8 @@ interface AbastecimentoRepository : JpaRepository<Abastecimento, UUID> {
         @org.springframework.data.repository.query.Param("tipoCombustivel") tipoCombustivel: String,
         @org.springframework.data.repository.query.Param("litros") litros: Double,
         @org.springframework.data.repository.query.Param("valorTotal") valorTotal: Double,
-        @org.springframework.data.repository.query.Param("posto") posto: String?
+        @org.springframework.data.repository.query.Param("posto") posto: String?,
+        @org.springframework.data.repository.query.Param("veiculoAbastecidoId") veiculoAbastecidoId: String? = null
     )
 
     @Query(
@@ -55,39 +56,44 @@ interface AbastecimentoRepository : JpaRepository<Abastecimento, UUID> {
 
     @Query(
         value = """
-            SELECT 
-                a.*,
-                v.id as veiculo_id,
-                v.descricao as veiculo_descricao,
-                v.placa as veiculo_placa,
-                u.login as motorista_login,
-                u.nome_completo as motorista_nome
-            FROM abastecimentos a
-            INNER JOIN diarios_bordo d ON d.id = a.diario_id
-            INNER JOIN veiculos v ON v.id = d.veiculo_id
-            INNER JOIN usuarios u ON u.id = d.usuario_id
-            ORDER BY a.registrado_em DESC
-        """,
+        SELECT 
+            a.*,
+            v.id as veiculo_id,
+            v.descricao as veiculo_descricao,
+            v.placa as veiculo_placa,
+            u.login as motorista_login,
+            u.nome_completo as motorista_nome,
+            va.descricao as veiculo_abastecido_descricao
+        FROM abastecimentos a
+        INNER JOIN diarios_bordo d ON d.id = a.diario_id
+        INNER JOIN veiculos v ON v.id = d.veiculo_id
+        INNER JOIN usuarios u ON u.id = d.usuario_id
+        LEFT JOIN veiculos va ON va.id = a.veiculo_abastecido_id
+        ORDER BY a.registrado_em DESC
+    """,
         nativeQuery = true
     )
     fun findTodos(): List<Array<Any>>
 
     @Query(
         value = """
-            SELECT 
-                a.*,
-                v.id as veiculo_id,
-                v.descricao as veiculo_descricao,
-                v.placa as veiculo_placa,
-                u.login as motorista_login,
-                u.nome_completo as motorista_nome
-            FROM abastecimentos a
-            INNER JOIN diarios_bordo d ON d.id = a.diario_id
-            INNER JOIN veiculos v ON v.id = d.veiculo_id
-            INNER JOIN usuarios u ON u.id = d.usuario_id
-            WHERE v.id = CAST(:veiculoId AS uuid)
-            ORDER BY a.registrado_em DESC
-        """,
+        SELECT 
+            a.*,
+            v.id as veiculo_id,
+            v.descricao as veiculo_descricao,
+            v.placa as veiculo_placa,
+            u.login as motorista_login,
+            u.nome_completo as motorista_nome,
+            va.descricao as veiculo_abastecido_descricao
+        FROM abastecimentos a
+        INNER JOIN diarios_bordo d ON d.id = a.diario_id
+        INNER JOIN veiculos v ON v.id = d.veiculo_id
+        INNER JOIN usuarios u ON u.id = d.usuario_id
+        LEFT JOIN veiculos va ON va.id = a.veiculo_abastecido_id
+        WHERE v.id = CAST(:veiculoId AS uuid)
+           OR a.veiculo_abastecido_id = CAST(:veiculoId AS uuid)
+        ORDER BY a.registrado_em DESC
+    """,
         nativeQuery = true
     )
     fun findByVeiculo(
@@ -96,20 +102,22 @@ interface AbastecimentoRepository : JpaRepository<Abastecimento, UUID> {
 
     @Query(
         value = """
-            SELECT 
-                a.*,
-                v.id as veiculo_id,
-                v.descricao as veiculo_descricao,
-                v.placa as veiculo_placa,
-                u.login as motorista_login,
-                u.nome_completo as motorista_nome
-            FROM abastecimentos a
-            INNER JOIN diarios_bordo d ON d.id = a.diario_id
-            INNER JOIN veiculos v ON v.id = d.veiculo_id
-            INNER JOIN usuarios u ON u.id = d.usuario_id
-            WHERE u.login = :login
-            ORDER BY a.registrado_em DESC
-        """,
+        SELECT 
+            a.*,
+            v.id as veiculo_id,
+            v.descricao as veiculo_descricao,
+            v.placa as veiculo_placa,
+            u.login as motorista_login,
+            u.nome_completo as motorista_nome,
+            va.descricao as veiculo_abastecido_descricao
+        FROM abastecimentos a
+        INNER JOIN diarios_bordo d ON d.id = a.diario_id
+        INNER JOIN veiculos v ON v.id = d.veiculo_id
+        INNER JOIN usuarios u ON u.id = d.usuario_id
+        LEFT JOIN veiculos va ON va.id = a.veiculo_abastecido_id
+        WHERE u.login = :login
+        ORDER BY a.registrado_em DESC
+    """,
         nativeQuery = true
     )
     fun findByMotorista(

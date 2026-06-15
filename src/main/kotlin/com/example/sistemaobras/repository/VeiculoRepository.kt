@@ -38,11 +38,11 @@ interface VeiculoRepository : JpaRepository<Veiculo, UUID> {
     @Transactional
     @Query(
         value = """
-            INSERT INTO veiculos (tipo_id, placa, descricao, status, medidor_atual,
-                marca, modelo, ano, cor, renavam, chassi)
-            VALUES (CAST(:tipoId AS uuid), :placa, :descricao, 'disponivel', :medidorAtual,
-                :marca, :modelo, :ano, :cor, :renavam, :chassi)
-        """,
+        INSERT INTO veiculos (tipo_id, placa, descricao, status, medidor_atual,
+            marca, modelo, ano, cor, renavam, chassi, comboio)
+        VALUES (CAST(:tipoId AS uuid), :placa, :descricao, 'disponivel', :medidorAtual,
+            :marca, :modelo, :ano, :cor, :renavam, :chassi, :comboio)
+    """,
         nativeQuery = true
     )
     fun inserirVeiculo(
@@ -55,25 +55,27 @@ interface VeiculoRepository : JpaRepository<Veiculo, UUID> {
         @org.springframework.data.repository.query.Param("ano") ano: Int? = null,
         @org.springframework.data.repository.query.Param("cor") cor: String? = null,
         @org.springframework.data.repository.query.Param("renavam") renavam: String? = null,
-        @org.springframework.data.repository.query.Param("chassi") chassi: String? = null
+        @org.springframework.data.repository.query.Param("chassi") chassi: String? = null,
+        @org.springframework.data.repository.query.Param("comboio") comboio: Boolean = false
     )
 
     @Modifying
     @Transactional
     @Query(
         value = """
-            UPDATE veiculos SET
-                placa = :placa,
-                descricao = :descricao,
-                marca = :marca,
-                modelo = :modelo,
-                ano = :ano,
-                cor = :cor,
-                renavam = :renavam,
-                chassi = :chassi,
-                atualizado_em = NOW()
-            WHERE id = CAST(:id AS uuid)
-        """,
+        UPDATE veiculos SET
+            placa = :placa,
+            descricao = :descricao,
+            marca = :marca,
+            modelo = :modelo,
+            ano = :ano,
+            cor = :cor,
+            renavam = :renavam,
+            chassi = :chassi,
+            comboio = :comboio,
+            atualizado_em = NOW()
+        WHERE id = CAST(:id AS uuid)
+    """,
         nativeQuery = true
     )
     fun atualizarVeiculo(
@@ -85,7 +87,8 @@ interface VeiculoRepository : JpaRepository<Veiculo, UUID> {
         @org.springframework.data.repository.query.Param("ano") ano: Int? = null,
         @org.springframework.data.repository.query.Param("cor") cor: String? = null,
         @org.springframework.data.repository.query.Param("renavam") renavam: String? = null,
-        @org.springframework.data.repository.query.Param("chassi") chassi: String? = null
+        @org.springframework.data.repository.query.Param("chassi") chassi: String? = null,
+        @org.springframework.data.repository.query.Param("comboio") comboio: Boolean = false
     )
 
     @Modifying
@@ -106,4 +109,7 @@ interface VeiculoRepository : JpaRepository<Veiculo, UUID> {
         @org.springframework.data.repository.query.Param("id") id: String,
         @org.springframework.data.repository.query.Param("status") status: String
     )
+
+    @Query(value = "SELECT * FROM veiculos WHERE comboio = true AND status != 'inativo' ORDER BY descricao", nativeQuery = true)
+    fun findComboios(): List<Veiculo>
 }

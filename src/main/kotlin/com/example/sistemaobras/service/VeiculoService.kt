@@ -27,7 +27,8 @@ class VeiculoService(
             ano = v.ano,
             cor = v.cor,
             renavam = v.renavam,
-            chassi = v.chassi
+            chassi = v.chassi,
+            comboio = v.comboio
         )
     }
 
@@ -74,10 +75,10 @@ class VeiculoService(
             ano = request.ano,
             cor = request.cor?.uppercase(),
             renavam = request.renavam,
-            chassi = request.chassi?.uppercase()
+            chassi = request.chassi?.uppercase(),
+            comboio = request.comboio
         )
     }
-
     fun atualizar(id: String, request: VeiculoRequest) {
         veiculoRepository.findById(UUID.fromString(id))
             .orElseThrow { RuntimeException("Veículo não encontrado") }
@@ -90,7 +91,8 @@ class VeiculoService(
             ano = request.ano,
             cor = request.cor?.uppercase(),
             renavam = request.renavam,
-            chassi = request.chassi?.uppercase()
+            chassi = request.chassi?.uppercase(),
+            comboio = request.comboio
         )
     }
 
@@ -98,5 +100,9 @@ class VeiculoService(
         veiculoRepository.findById(UUID.fromString(id))
             .orElseThrow { RuntimeException("Veículo não encontrado") }
         veiculoRepository.inativarVeiculo(id)
+    }
+
+    fun listarComboios(): List<VeiculoResponse> {
+        return veiculoRepository.findComboios().map { toResponse(it) }
     }
 }

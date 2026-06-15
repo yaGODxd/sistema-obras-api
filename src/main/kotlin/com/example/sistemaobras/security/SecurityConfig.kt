@@ -49,6 +49,7 @@ class SecurityConfig {
                     "/manutencoes/**",
                     "/logs/**",
                     "/secretarias/**",
+                    "/veiculos/comboios",
 
 
                     ).permitAll()

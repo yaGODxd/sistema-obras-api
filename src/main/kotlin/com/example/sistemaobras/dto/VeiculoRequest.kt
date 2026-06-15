@@ -10,5 +10,6 @@ data class VeiculoRequest(
     val ano: Int? = null,
     val cor: String? = null,
     val renavam: String? = null,
-    val chassi: String? = null
+    val chassi: String? = null,
+    val comboio: Boolean = false
 )
