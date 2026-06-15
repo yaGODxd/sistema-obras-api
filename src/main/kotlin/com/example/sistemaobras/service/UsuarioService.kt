@@ -1,12 +1,10 @@
 package com.example.sistemaobras.service
 
-import com.example.sistemaobras.dto.AtualizarPerfilRequest
-import com.example.sistemaobras.dto.CriarUsuarioRequest
-import com.example.sistemaobras.dto.LoginRequest
-import com.example.sistemaobras.dto.LoginResponse
-import com.example.sistemaobras.dto.UsuarioResponse
-import com.example.sistemaobras.dto.MotoristaOnlineResponse
+import com.example.sistemaobras.dto.*
+import com.example.sistemaobras.entity.Usuario
+import java.time.LocalDate
 import java.util.UUID
+import com.example.sistemaobras.repository.SecretariaRepository
 import com.example.sistemaobras.repository.UsuarioRepository
 import com.example.sistemaobras.security.JwtService
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
@@ -16,19 +14,38 @@ import org.springframework.stereotype.Service
 class UsuarioService(
     private val usuarioRepository: UsuarioRepository,
     private val jwtService: JwtService,
-    private val logService: LogService
+    private val logService: LogService,
+    private val secretariaRepository: SecretariaRepository
 ) {
     private val bcrypt = BCryptPasswordEncoder()
+
+    private fun toResponse(u: Usuario): UsuarioResponse {
+        val secretariaNome = u.secretariaId?.let {
+            try { secretariaRepository.findById(it).orElse(null)?.nome } catch (e: Exception) { null }
+        }
+        return UsuarioResponse(
+            id = u.id,
+            nomeCompleto = u.nomeCompleto,
+            login = u.login,
+            perfil = u.perfil.name,
+            fotoPerfil = u.fotoPerfil,
+            ativo = u.ativo,
+            matricula = u.matricula,
+            vinculo = u.vinculo,
+            secretariaId = u.secretariaId,
+            secretariaNome = secretariaNome,
+            categoriaCnh = u.categoriaCnh,
+            validadeCnh = u.validadeCnh,
+            telefone = u.telefone
+        )
+    }
 
     fun login(request: LoginRequest): LoginResponse {
         val usuario = usuarioRepository.findByLogin(request.login)
             ?: throw RuntimeException("Usuário não encontrado")
 
-        if (!usuario.ativo)
-            throw RuntimeException("Usuário inativo")
-
-        if (!bcrypt.matches(request.senha, usuario.senhaHash))
-            throw RuntimeException("Senha incorreta")
+        if (!usuario.ativo) throw RuntimeException("Usuário inativo")
+        if (!bcrypt.matches(request.senha, usuario.senhaHash)) throw RuntimeException("Senha incorreta")
 
         val token = jwtService.gerarToken(usuario.login, usuario.perfil.name)
 
@@ -39,11 +56,7 @@ class UsuarioService(
             descricao = "Usuário realizou login no sistema"
         )
 
-        return LoginResponse(
-            token = token,
-            nome = usuario.nomeCompleto,
-            perfil = usuario.perfil.name
-        )
+        return LoginResponse(token = token, nome = usuario.nomeCompleto, perfil = usuario.perfil.name)
     }
 
     fun criar(request: CriarUsuarioRequest): LoginResponse {
@@ -56,7 +69,13 @@ class UsuarioService(
             login = request.login,
             senhaHash = bcrypt.encode(request.senha)!!,
             perfil = request.perfil,
-            ativo = true
+            ativo = true,
+            matricula = request.matricula,
+            vinculo = request.vinculo,
+            secretariaId = request.secretariaId,
+            categoriaCnh = request.categoriaCnh,
+            validadeCnh = request.validadeCnh?.let { LocalDate.parse(it) },
+            telefone = request.telefone
         )
 
         val token = jwtService.gerarToken(request.login, request.perfil)
@@ -65,24 +84,17 @@ class UsuarioService(
             usuarioLogin = request.login,
             usuarioNome = request.nomeCompleto,
             acao = "CADASTRO",
-            descricao = "Novo usuário cadastrado no sistema com perfil ${request.perfil}"
+            descricao = "Novo usuário cadastrado com perfil ${request.perfil}"
         )
 
-        return LoginResponse(
-            token = token,
-            nome = request.nomeCompleto,
-            perfil = request.perfil
-        )
+        return LoginResponse(token = token, nome = request.nomeCompleto, perfil = request.perfil)
     }
 
     fun atualizarPerfil(login: String, request: AtualizarPerfilRequest): UsuarioResponse {
-        val usuario = usuarioRepository.findByLogin(login)
+        usuarioRepository.findByLogin(login)
             ?: throw RuntimeException("Usuário não encontrado")
 
-        if (request.fotoPerfil != null) {
-            usuarioRepository.atualizarFoto(login, request.fotoPerfil)
-        }
-
+        if (request.fotoPerfil != null) usuarioRepository.atualizarFoto(login, request.fotoPerfil)
         if (request.nomeCompleto != null) {
             usuarioRepository.atualizarNome(login, request.nomeCompleto)
             logService.registrar(
@@ -93,26 +105,39 @@ class UsuarioService(
             )
         }
 
-        val atualizado = usuarioRepository.findByLogin(login)!!
-        return UsuarioResponse(
-            id = atualizado.id,
-            nomeCompleto = atualizado.nomeCompleto,
-            login = atualizado.login,
-            perfil = atualizado.perfil.name,
-            fotoPerfil = atualizado.fotoPerfil
+        return toResponse(usuarioRepository.findByLogin(login)!!)
+    }
+
+    fun atualizarUsuario(login: String, request: AtualizarUsuarioRequest): UsuarioResponse {
+        usuarioRepository.findByLogin(login)
+            ?: throw RuntimeException("Usuário não encontrado")
+
+        usuarioRepository.atualizarUsuarioCompleto(
+            login = login,
+            nomeCompleto = request.nomeCompleto,
+            fotoPerfil = request.fotoPerfil,
+            matricula = request.matricula,
+            vinculo = request.vinculo,
+            secretariaId = request.secretariaId,
+            categoriaCnh = request.categoriaCnh,
+            validadeCnh = request.validadeCnh?.let { LocalDate.parse(it) },
+            telefone = request.telefone
         )
+
+        logService.registrar(
+            usuarioLogin = login,
+            usuarioNome = request.nomeCompleto ?: login,
+            acao = "ATUALIZAR_PERFIL",
+            descricao = "Dados do usuário atualizados"
+        )
+
+        return toResponse(usuarioRepository.findByLogin(login)!!)
     }
 
     fun buscarPerfil(login: String): UsuarioResponse {
         val usuario = usuarioRepository.findByLogin(login)
             ?: throw RuntimeException("Usuário não encontrado")
-        return UsuarioResponse(
-            id = usuario.id,
-            nomeCompleto = usuario.nomeCompleto,
-            login = usuario.login,
-            perfil = usuario.perfil.name,
-            fotoPerfil = usuario.fotoPerfil
-        )
+        return toResponse(usuario)
     }
 
     fun listarMotoristasOnline(): List<MotoristaOnlineResponse> {
@@ -130,16 +155,7 @@ class UsuarioService(
     }
 
     fun listarTodos(): List<UsuarioResponse> {
-        return usuarioRepository.findAll().map { u ->
-            UsuarioResponse(
-                id = u.id,
-                nomeCompleto = u.nomeCompleto,
-                login = u.login,
-                perfil = u.perfil.name,
-                fotoPerfil = u.fotoPerfil,
-                ativo = u.ativo
-            )
-        }
+        return usuarioRepository.findAll().map { toResponse(it) }
     }
 
     fun alterarAtivo(login: String, ativo: Boolean) {

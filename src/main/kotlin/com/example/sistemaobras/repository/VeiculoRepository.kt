@@ -11,16 +11,10 @@ import java.util.UUID
 @Repository
 interface VeiculoRepository : JpaRepository<Veiculo, UUID> {
 
-    @Query(
-        value = "SELECT * FROM veiculos WHERE status != 'inativo' ORDER BY descricao",
-        nativeQuery = true
-    )
+    @Query(value = "SELECT * FROM veiculos WHERE status != 'inativo' ORDER BY descricao", nativeQuery = true)
     fun findAllAtivos(): List<Veiculo>
 
-    @Query(
-        value = "SELECT * FROM veiculos WHERE status = 'disponivel' ORDER BY descricao",
-        nativeQuery = true
-    )
+    @Query(value = "SELECT * FROM veiculos WHERE status = 'disponivel' ORDER BY descricao", nativeQuery = true)
     fun findDisponiveis(): List<Veiculo>
 
     @Query(
@@ -44,8 +38,10 @@ interface VeiculoRepository : JpaRepository<Veiculo, UUID> {
     @Transactional
     @Query(
         value = """
-            INSERT INTO veiculos (tipo_id, placa, descricao, status, medidor_atual)
-            VALUES (CAST(:tipoId AS uuid), :placa, :descricao, 'disponivel', :medidorAtual)
+            INSERT INTO veiculos (tipo_id, placa, descricao, status, medidor_atual,
+                marca, modelo, ano, cor, renavam, chassi)
+            VALUES (CAST(:tipoId AS uuid), :placa, :descricao, 'disponivel', :medidorAtual,
+                :marca, :modelo, :ano, :cor, :renavam, :chassi)
         """,
         nativeQuery = true
     )
@@ -53,7 +49,13 @@ interface VeiculoRepository : JpaRepository<Veiculo, UUID> {
         @org.springframework.data.repository.query.Param("tipoId") tipoId: String,
         @org.springframework.data.repository.query.Param("placa") placa: String?,
         @org.springframework.data.repository.query.Param("descricao") descricao: String,
-        @org.springframework.data.repository.query.Param("medidorAtual") medidorAtual: Double
+        @org.springframework.data.repository.query.Param("medidorAtual") medidorAtual: Double,
+        @org.springframework.data.repository.query.Param("marca") marca: String? = null,
+        @org.springframework.data.repository.query.Param("modelo") modelo: String? = null,
+        @org.springframework.data.repository.query.Param("ano") ano: Int? = null,
+        @org.springframework.data.repository.query.Param("cor") cor: String? = null,
+        @org.springframework.data.repository.query.Param("renavam") renavam: String? = null,
+        @org.springframework.data.repository.query.Param("chassi") chassi: String? = null
     )
 
     @Modifying
@@ -63,6 +65,12 @@ interface VeiculoRepository : JpaRepository<Veiculo, UUID> {
             UPDATE veiculos SET
                 placa = :placa,
                 descricao = :descricao,
+                marca = :marca,
+                modelo = :modelo,
+                ano = :ano,
+                cor = :cor,
+                renavam = :renavam,
+                chassi = :chassi,
                 atualizado_em = NOW()
             WHERE id = CAST(:id AS uuid)
         """,
@@ -71,7 +79,13 @@ interface VeiculoRepository : JpaRepository<Veiculo, UUID> {
     fun atualizarVeiculo(
         @org.springframework.data.repository.query.Param("id") id: String,
         @org.springframework.data.repository.query.Param("placa") placa: String?,
-        @org.springframework.data.repository.query.Param("descricao") descricao: String
+        @org.springframework.data.repository.query.Param("descricao") descricao: String,
+        @org.springframework.data.repository.query.Param("marca") marca: String? = null,
+        @org.springframework.data.repository.query.Param("modelo") modelo: String? = null,
+        @org.springframework.data.repository.query.Param("ano") ano: Int? = null,
+        @org.springframework.data.repository.query.Param("cor") cor: String? = null,
+        @org.springframework.data.repository.query.Param("renavam") renavam: String? = null,
+        @org.springframework.data.repository.query.Param("chassi") chassi: String? = null
     )
 
     @Modifying
@@ -80,9 +94,7 @@ interface VeiculoRepository : JpaRepository<Veiculo, UUID> {
         value = "UPDATE veiculos SET status = 'inativo', atualizado_em = NOW() WHERE id = CAST(:id AS uuid)",
         nativeQuery = true
     )
-    fun inativarVeiculo(
-        @org.springframework.data.repository.query.Param("id") id: String
-    )
+    fun inativarVeiculo(@org.springframework.data.repository.query.Param("id") id: String)
 
     @Modifying
     @Transactional

@@ -1,6 +1,7 @@
 package com.example.sistemaobras.controller
 
 import com.example.sistemaobras.dto.AtualizarPerfilRequest
+import com.example.sistemaobras.dto.AtualizarUsuarioRequest
 import com.example.sistemaobras.dto.MotoristaOnlineResponse
 import com.example.sistemaobras.dto.UsuarioResponse
 import com.example.sistemaobras.service.UsuarioService
@@ -51,6 +52,18 @@ class UsuarioController(
         return try {
             usuarioService.alterarAtivo(login, body["ativo"] ?: true)
             ResponseEntity.ok().build()
+        } catch (e: RuntimeException) {
+            ResponseEntity.status(400).build()
+        }
+    }
+
+    @PutMapping("/{login}")
+    fun atualizarUsuario(
+        @PathVariable login: String,
+        @RequestBody request: AtualizarUsuarioRequest
+    ): ResponseEntity<UsuarioResponse> {
+        return try {
+            ResponseEntity.ok(usuarioService.atualizarUsuario(login, request))
         } catch (e: RuntimeException) {
             ResponseEntity.status(400).build()
         }

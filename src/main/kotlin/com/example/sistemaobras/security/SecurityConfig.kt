@@ -47,9 +47,11 @@ class SecurityConfig {
                     "/abastecimentos/**",
                     "/ocorrencias/**",
                     "/manutencoes/**",
-                    "/logs/**"
+                    "/logs/**",
+                    "/secretarias/**",
 
-                ).permitAll()
+
+                    ).permitAll()
                 auth.anyRequest().authenticated()
             }
         return http.build()

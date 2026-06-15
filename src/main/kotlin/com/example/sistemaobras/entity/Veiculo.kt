@@ -27,6 +27,24 @@ data class Veiculo(
     @Column(name = "medidor_atual", nullable = false)
     val medidorAtual: BigDecimal = BigDecimal.ZERO,
 
+    @Column(name = "marca")
+    val marca: String? = null,
+
+    @Column(name = "modelo")
+    val modelo: String? = null,
+
+    @Column(name = "ano")
+    val ano: Int? = null,
+
+    @Column(name = "cor")
+    val cor: String? = null,
+
+    @Column(name = "renavam")
+    val renavam: String? = null,
+
+    @Column(name = "chassi")
+    val chassi: String? = null,
+
     @Column(name = "criado_em", nullable = false)
     val criadoEm: LocalDateTime = LocalDateTime.now(),
 

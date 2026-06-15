@@ -1,10 +1,10 @@
 package com.example.sistemaobras.entity
 
 import jakarta.persistence.*
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.util.UUID
 import jakarta.persistence.Convert
-
 
 @Entity
 @Table(name = "usuarios")
@@ -37,6 +37,24 @@ data class Usuario(
 
     @Column(name = "token_fcm")
     val tokenFcm: String? = null,
+
+    @Column(name = "matricula")
+    val matricula: String? = null,
+
+    @Column(name = "vinculo")
+    val vinculo: String? = null,
+
+    @Column(name = "secretaria_id")
+    val secretariaId: Int? = null,
+
+    @Column(name = "categoria_cnh")
+    val categoriaCnh: String? = null,
+
+    @Column(name = "validade_cnh")
+    val validadeCnh: LocalDate? = null,
+
+    @Column(name = "telefone")
+    val telefone: String? = null,
 
     @Column(name = "criado_em", nullable = false)
     val criadoEm: LocalDateTime = LocalDateTime.now(),

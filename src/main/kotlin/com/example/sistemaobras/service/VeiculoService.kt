@@ -13,32 +13,30 @@ class VeiculoService(
     private val veiculoRepository: VeiculoRepository
 ) {
 
+    private fun toResponse(v: com.example.sistemaobras.entity.Veiculo): VeiculoResponse {
+        return VeiculoResponse(
+            id = v.id,
+            tipoNome = "",
+            tipoMedidor = "",
+            placa = v.placa,
+            descricao = v.descricao,
+            status = v.status,
+            medidorAtual = v.medidorAtual.toDouble(),
+            marca = v.marca,
+            modelo = v.modelo,
+            ano = v.ano,
+            cor = v.cor,
+            renavam = v.renavam,
+            chassi = v.chassi
+        )
+    }
+
     fun listarTodos(): List<VeiculoResponse> {
-        return veiculoRepository.findAllAtivos().map { v ->
-            VeiculoResponse(
-                id = v.id,
-                tipoNome = "",
-                tipoMedidor = "",
-                placa = v.placa,
-                descricao = v.descricao,
-                status = v.status,
-                medidorAtual = v.medidorAtual.toDouble()
-            )
-        }
+        return veiculoRepository.findAllAtivos().map { toResponse(it) }
     }
 
     fun listarDisponiveis(): List<VeiculoResponse> {
-        return veiculoRepository.findDisponiveis().map { v ->
-            VeiculoResponse(
-                id = v.id,
-                tipoNome = "",
-                tipoMedidor = "",
-                placa = v.placa,
-                descricao = v.descricao,
-                status = v.status,
-                medidorAtual = v.medidorAtual.toDouble()
-            )
-        }
+        return veiculoRepository.findDisponiveis().map { toResponse(it) }
     }
 
     fun listarEmUso(): List<VeiculoEmUsoResponse> {
@@ -62,15 +60,7 @@ class VeiculoService(
     fun buscarPorId(id: String): VeiculoResponse {
         val veiculo = veiculoRepository.findById(UUID.fromString(id))
             .orElseThrow { RuntimeException("Veículo não encontrado") }
-        return VeiculoResponse(
-            id = veiculo.id,
-            tipoNome = "",
-            tipoMedidor = "",
-            placa = veiculo.placa,
-            descricao = veiculo.descricao,
-            status = veiculo.status,
-            medidorAtual = veiculo.medidorAtual.toDouble()
-        )
+        return toResponse(veiculo)
     }
 
     fun cadastrar(request: VeiculoRequest) {
@@ -78,7 +68,13 @@ class VeiculoService(
             tipoId = request.tipoId,
             placa = request.placa,
             descricao = request.descricao,
-            medidorAtual = request.medidorAtual
+            medidorAtual = request.medidorAtual,
+            marca = request.marca?.uppercase(),
+            modelo = request.modelo?.uppercase(),
+            ano = request.ano,
+            cor = request.cor?.uppercase(),
+            renavam = request.renavam,
+            chassi = request.chassi?.uppercase()
         )
     }
 
@@ -88,7 +84,13 @@ class VeiculoService(
         veiculoRepository.atualizarVeiculo(
             id = id,
             placa = request.placa,
-            descricao = request.descricao
+            descricao = request.descricao,
+            marca = request.marca?.uppercase(),
+            modelo = request.modelo?.uppercase(),
+            ano = request.ano,
+            cor = request.cor?.uppercase(),
+            renavam = request.renavam,
+            chassi = request.chassi?.uppercase()
         )
     }
 
