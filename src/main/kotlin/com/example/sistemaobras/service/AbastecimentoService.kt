@@ -81,6 +81,10 @@ class AbastecimentoService(
     private fun mapearRow(row: Array<Any>): AbastecimentoDetalhadoResponse {
         val motoristaLogin = row[11].toString()
         val foto = try { usuarioRepository.findFotoByLogin(motoristaLogin) } catch (e: Exception) { null }
+
+        println("ROW SIZE: ${row.size}")
+        row.forEachIndexed { i, v -> println("[$i] = $v") }
+
         return AbastecimentoDetalhadoResponse(
             id = UUID.fromString(row[0].toString()),
             tipoCombustivel = row[2].toString(),
