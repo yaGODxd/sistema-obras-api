@@ -171,4 +171,16 @@ interface DiarioBordoRepository : JpaRepository<DiarioBordo, UUID> {
         @org.springframework.data.repository.query.Param("mes") mes: Int?,
         @org.springframework.data.repository.query.Param("ano") ano: Int?
     ): List<Array<Any>>
+
+    @Query(
+        value = """
+        SELECT COUNT(*) FROM diarios_bordo d
+        INNER JOIN veiculos v ON v.id = d.veiculo_id
+        WHERE v.id = CAST(:veiculoId AS uuid) AND d.status = 'aberto'
+    """,
+        nativeQuery = true
+    )
+    fun temDiarioAbertoPorVeiculo(
+        @org.springframework.data.repository.query.Param("veiculoId") veiculoId: String
+    ): Long
 }

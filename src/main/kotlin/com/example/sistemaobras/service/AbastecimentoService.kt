@@ -18,8 +18,16 @@ class AbastecimentoService(
 ) {
 
     fun registrar(request: AbastecimentoRequest): AbastecimentoResponse {
-        if (diarioRepository.temDiarioAberto(request.loginMotorista) == 0L)
-            throw RuntimeException("Motorista não tem diário aberto")
+        if (request.veiculoAbastecidoId != null) {
+            // Comboio — verifica se o veículo abastecido tem diário aberto
+            val temDiario = diarioRepository.temDiarioAbertoPorVeiculo(request.veiculoAbastecidoId)
+            if (temDiario == 0L)
+                throw RuntimeException("Veículo a ser abastecido não tem diário aberto")
+        } else {
+            // Normal — verifica diário do motorista
+            if (diarioRepository.temDiarioAberto(request.loginMotorista) == 0L)
+                throw RuntimeException("Motorista não tem diário aberto")
+        }
 
         abastecimentoRepository.inserirAbastecimento(
             login = request.loginMotorista,
