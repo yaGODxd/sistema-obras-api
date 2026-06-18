@@ -94,13 +94,13 @@ interface UsuarioRepository : JpaRepository<Usuario, UUID> {
 
     @Query(
         value = """
-        SELECT u.id, u.nome_completo, u.login, u.foto_perfil, t.aberto_em
-        FROM usuarios u
-        INNER JOIN turnos t ON t.usuario_id = u.id
-        WHERE t.status = 'aberto'
-        AND u.perfil = 'motorista'
-        ORDER BY t.aberto_em DESC
-    """,
+    SELECT u.id, u.nome_completo, u.login, u.foto_perfil, t.aberto_em
+    FROM usuarios u
+    INNER JOIN turnos t ON t.usuario_id = u.id
+    WHERE t.status = 'aberto'
+    AND u.ativo = true
+    ORDER BY t.aberto_em DESC
+""",
         nativeQuery = true
     )
     fun findMotoristasOnline(): List<Array<Any>>
