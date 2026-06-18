@@ -105,4 +105,25 @@ class VeiculoService(
     fun listarComboios(): List<VeiculoResponse> {
         return veiculoRepository.findComboios().map { toResponse(it) }
     }
+
+    fun buscarMotoristas(id: String): Map<String, Any?> {
+        val maisUsou = veiculoRepository.findMotoristaMaisUsou(id).firstOrNull()
+        val ultimo = veiculoRepository.findUltimoMotorista(id).firstOrNull()
+        return mapOf(
+            "maisUsou" to if (maisUsou != null) mapOf(
+                "id" to maisUsou[0].toString(),
+                "nomeCompleto" to maisUsou[1].toString(),
+                "login" to maisUsou[2].toString(),
+                "fotoPerfil" to maisUsou[3]?.toString(),
+                "totalUsos" to maisUsou[4].toString().toInt()
+            ) else null,
+            "ultimo" to if (ultimo != null) mapOf(
+                "id" to ultimo[0].toString(),
+                "nomeCompleto" to ultimo[1].toString(),
+                "login" to ultimo[2].toString(),
+                "fotoPerfil" to ultimo[3]?.toString(),
+                "ultimoUso" to ultimo[4].toString()
+            ) else null
+        )
+    }
 }

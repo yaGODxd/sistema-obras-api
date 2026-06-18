@@ -73,4 +73,9 @@ class VeiculoController(
     fun listarComboios(): ResponseEntity<List<VeiculoResponse>> {
         return ResponseEntity.ok(veiculoService.listarComboios())
     }
+
+    @GetMapping("/{id}/motoristas")
+    fun buscarMotoristas(@PathVariable id: String): ResponseEntity<Map<String, Any?>> {
+        return ResponseEntity.ok(veiculoService.buscarMotoristas(id))
+    }
 }

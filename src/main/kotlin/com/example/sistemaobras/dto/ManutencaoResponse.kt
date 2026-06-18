@@ -20,5 +20,6 @@ data class ManutencaoResponse(
     val abertaEm: LocalDateTime,
     val concluidaEm: LocalDateTime?,
     val observacoes: String?,
+    val fotoNotaFiscal: String? = null,
     val pecas: List<PecaResponse>
 )

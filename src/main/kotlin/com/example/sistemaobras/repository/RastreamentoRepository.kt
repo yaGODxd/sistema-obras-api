@@ -60,4 +60,27 @@ interface RastreamentoRepository : JpaRepository<RastreamentoGps, UUID> {
         nativeQuery = true
     )
     fun findUltimasPosicoes(): List<Array<Any>>
+
+    @Query(
+        value = """
+        SELECT COUNT(*) FROM rastreamento_gps r
+        INNER JOIN diarios_bordo d ON d.id = r.diario_id
+        INNER JOIN usuarios u ON u.id = d.usuario_id
+        WHERE u.login = :login AND d.status = 'aberto'
+        AND (
+            6371000 * acos(
+                cos(radians(:latitude)) * cos(radians(r.latitude)) *
+                cos(radians(r.longitude) - radians(:longitude)) +
+                sin(radians(:latitude)) * sin(radians(r.latitude))
+            )
+        ) < 50
+        AND r.registrado_em > NOW() - INTERVAL '2 minutes'
+    """,
+        nativeQuery = true
+    )
+    fun contarPontosProximos(
+        @org.springframework.data.repository.query.Param("login") login: String,
+        @org.springframework.data.repository.query.Param("latitude") latitude: Double,
+        @org.springframework.data.repository.query.Param("longitude") longitude: Double
+    ): Long
 }

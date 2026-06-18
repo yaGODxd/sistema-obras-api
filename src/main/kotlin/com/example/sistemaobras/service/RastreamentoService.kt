@@ -14,6 +14,11 @@ class RastreamentoService(
 ) {
 
     fun registrarPonto(request: RastreamentoRequest) {
+        val proximos = rastreamentoRepository.contarPontosProximos(
+            request.loginMotorista, request.latitude, request.longitude
+        )
+        if (proximos > 0) return
+
         rastreamentoRepository.inserirPonto(
             login = request.loginMotorista,
             latitude = request.latitude,

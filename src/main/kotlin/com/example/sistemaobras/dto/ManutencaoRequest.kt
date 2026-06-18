@@ -9,5 +9,6 @@ data class ManutencaoRequest(
     val oficina: String? = null,
     val custoMaoObra: Double = 0.0,
     val observacoes: String? = null,
+    val fotoNotaFiscal: String? = null,
     val pecas: List<PecaRequest> = emptyList()
 )

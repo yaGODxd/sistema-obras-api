@@ -112,4 +112,39 @@ interface VeiculoRepository : JpaRepository<Veiculo, UUID> {
 
     @Query(value = "SELECT * FROM veiculos WHERE comboio = true AND status != 'inativo' ORDER BY descricao", nativeQuery = true)
     fun findComboios(): List<Veiculo>
+
+    @Query(
+        value = """
+        SELECT 
+            u.id, u.nome_completo, u.login, u.foto_perfil,
+            COUNT(d.id) as total_usos,
+            MAX(d.aberto_em) as ultimo_uso
+        FROM diarios_bordo d
+        INNER JOIN usuarios u ON u.id = d.usuario_id
+        WHERE d.veiculo_id = CAST(:veiculoId AS uuid)
+        GROUP BY u.id, u.nome_completo, u.login, u.foto_perfil
+        ORDER BY total_usos DESC
+        LIMIT 1
+    """,
+        nativeQuery = true
+    )
+    fun findMotoristaMaisUsou(
+        @org.springframework.data.repository.query.Param("veiculoId") veiculoId: String
+    ): List<Array<Any>>
+
+    @Query(
+        value = """
+        SELECT 
+            u.id, u.nome_completo, u.login, u.foto_perfil, d.aberto_em
+        FROM diarios_bordo d
+        INNER JOIN usuarios u ON u.id = d.usuario_id
+        WHERE d.veiculo_id = CAST(:veiculoId AS uuid)
+        ORDER BY d.aberto_em DESC
+        LIMIT 1
+    """,
+        nativeQuery = true
+    )
+    fun findUltimoMotorista(
+        @org.springframework.data.repository.query.Param("veiculoId") veiculoId: String
+    ): List<Array<Any>>
 }

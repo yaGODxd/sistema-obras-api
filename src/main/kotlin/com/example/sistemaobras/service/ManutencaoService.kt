@@ -31,7 +31,8 @@ class ManutencaoService(
             mecanicoResponsavel = request.mecanicoResponsavel,
             oficina = request.oficina,
             custoMaoObra = BigDecimal.valueOf(request.custoMaoObra),
-            observacoes = request.observacoes
+            observacoes = request.observacoes,
+            fotoNotaFiscal = request.fotoNotaFiscal
         ))
 
         val pecas = request.pecas.map { p ->
@@ -157,6 +158,7 @@ class ManutencaoService(
             abertaEm = m.abertaEm,
             concluidaEm = m.concluidaEm,
             observacoes = m.observacoes,
+            fotoNotaFiscal = m.fotoNotaFiscal,
             pecas = pecas.map { toPecaResponse(it) }
         )
     }

@@ -45,6 +45,9 @@ data class Manutencao(
     @Column(name = "observacoes")
     val observacoes: String? = null,
 
+    @Column(name = "foto_nota_fiscal", columnDefinition = "TEXT")
+    val fotoNotaFiscal: String? = null,
+
     @Column(name = "criado_em", nullable = false)
     val criadoEm: LocalDateTime = LocalDateTime.now(),
 
