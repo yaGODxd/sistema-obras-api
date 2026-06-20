@@ -90,10 +90,10 @@ class ChecklistController(
             ChecklistRespostaResponse(
                 id = UUID.fromString(row[0].toString()),
                 itemId = UUID.fromString(row[2].toString()),
-                descricao = row[9].toString(),
-                obrigatorio = row[10].toString().toBoolean(),
-                ok = row[3].toString().toBoolean(),
-                observacao = row[4]?.toString(),
+                descricao = row[6].toString(),
+                obrigatorio = row[7].toString().toBoolean(),
+                ok = row[4].toString().toBoolean(),
+                observacao = row[3]?.toString(),
                 registradoEm = if (row[5] != null)
                     java.time.LocalDateTime.parse(row[5].toString().replace(" ", "T"))
                 else null
