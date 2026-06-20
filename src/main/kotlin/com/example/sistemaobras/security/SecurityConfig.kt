@@ -17,13 +17,10 @@ class SecurityConfig {
     @Bean
     fun corsConfigurationSource(): CorsConfigurationSource {
         val config = CorsConfiguration()
-        config.allowedOrigins = listOf(
-            "http://localhost:4200",
-            "https://sistema-obras-api.onrender.com"
-        )
+        config.allowedOriginPatterns = listOf("*")
         config.allowedMethods = listOf("GET", "POST", "PUT", "DELETE", "OPTIONS")
         config.allowedHeaders = listOf("*")
-        config.allowCredentials = true
+        config.allowCredentials = false
 
         val source = UrlBasedCorsConfigurationSource()
         source.registerCorsConfiguration("/**", config)
@@ -49,13 +46,10 @@ class SecurityConfig {
                     "/manutencoes/**",
                     "/logs/**",
                     "/secretarias/**",
-                    "/veiculos/comboios",
                     "/mecanicos/**",
                     "/postos/**",
-                    "/checklist/**",
-
-
-                    ).permitAll()
+                    "/checklist/**"
+                ).permitAll()
                 auth.anyRequest().authenticated()
             }
         return http.build()
