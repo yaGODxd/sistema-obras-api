@@ -32,25 +32,10 @@ class SecurityConfig {
         http
             .cors { it.configurationSource(corsConfigurationSource()) }
             .csrf { it.disable() }
+            .headers { it.frameOptions { fo -> fo.disable() } }
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .authorizeHttpRequests { auth ->
-                auth.requestMatchers(
-                    "/auth/**",
-                    "/usuarios/**",
-                    "/turnos/**",
-                    "/veiculos/**",
-                    "/diarios/**",
-                    "/rastreamento/**",
-                    "/abastecimentos/**",
-                    "/ocorrencias/**",
-                    "/manutencoes/**",
-                    "/logs/**",
-                    "/secretarias/**",
-                    "/mecanicos/**",
-                    "/postos/**",
-                    "/checklist/**"
-                ).permitAll()
-                auth.anyRequest().authenticated()
+                auth.anyRequest().permitAll()
             }
         return http.build()
     }
