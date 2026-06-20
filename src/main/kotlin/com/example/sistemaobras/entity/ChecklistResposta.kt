@@ -23,6 +23,12 @@ data class ChecklistResposta(
     @Column(name = "observacao")
     val observacao: String? = null,
 
+    @Column(name = "resposta")
+    val resposta: String? = null,
+
+    @Column(name = "sincronizado")
+    val sincronizado: Boolean = false,
+
     @Column(name = "registrado_em", nullable = false)
-    val registradoEm: LocalDateTime = LocalDateTime.now()
+    val registradoEm: java.time.LocalDateTime = java.time.LocalDateTime.now()
 )
