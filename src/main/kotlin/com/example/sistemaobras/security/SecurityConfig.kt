@@ -52,6 +52,7 @@ class SecurityConfig {
                     "/veiculos/comboios",
                     "/mecanicos/**",
                     "/postos/**",
+                    "/checklist/**",
 
 
                     ).permitAll()
