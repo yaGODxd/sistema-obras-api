@@ -76,6 +76,7 @@ class UsuarioController(
     fun resumoSemanal(@PathVariable login: String): ResponseEntity<ResumoSemanalResponse> {
         return try {
             val row = usuarioRepository.findResumoSemanal(login)
+            println("RESUMO ROW: ${row.toList()}")
             ResponseEntity.ok(
                 ResumoSemanalResponse(
                     totalDiarios = row[0].toString().toDouble().toInt(),
@@ -84,6 +85,8 @@ class UsuarioController(
                 )
             )
         } catch (e: Exception) {
+            println("RESUMO ERRO: ${e.message}")
+            e.printStackTrace()
             ResponseEntity.ok(ResumoSemanalResponse(0, 0.0, 0))
         }
     }
