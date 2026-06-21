@@ -140,5 +140,5 @@ interface UsuarioRepository : JpaRepository<Usuario, UUID> {
     )
     fun findResumoSemanal(
         @org.springframework.data.repository.query.Param("login") login: String
-    ): Array<Any>
+    ): List<Array<Any>>
 }

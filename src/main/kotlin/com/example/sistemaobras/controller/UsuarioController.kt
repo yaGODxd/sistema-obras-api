@@ -75,7 +75,10 @@ class UsuarioController(
     @GetMapping("/{login}/resumo-semanal")
     fun resumoSemanal(@PathVariable login: String): ResponseEntity<ResumoSemanalResponse> {
         return try {
-            val row = usuarioRepository.findResumoSemanal(login)
+            val rows = usuarioRepository.findResumoSemanal(login)
+            println("RESUMO ROWS size: ${rows.size}")
+            if (rows.isEmpty()) return ResponseEntity.ok(ResumoSemanalResponse(0, 0.0, 0))
+            val row = rows[0]
             println("RESUMO ROW: ${row.toList()}")
             ResponseEntity.ok(
                 ResumoSemanalResponse(
