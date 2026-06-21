@@ -3,7 +3,9 @@ package com.example.sistemaobras.controller
 import com.example.sistemaobras.dto.AtualizarPerfilRequest
 import com.example.sistemaobras.dto.AtualizarUsuarioRequest
 import com.example.sistemaobras.dto.MotoristaOnlineResponse
+import com.example.sistemaobras.dto.ResumoSemanalResponse
 import com.example.sistemaobras.dto.UsuarioResponse
+import com.example.sistemaobras.repository.UsuarioRepository
 import com.example.sistemaobras.service.UsuarioService
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
@@ -11,7 +13,8 @@ import org.springframework.web.bind.annotation.*
 @RestController
 @RequestMapping("/usuarios")
 class UsuarioController(
-    private val usuarioService: UsuarioService
+    private val usuarioService: UsuarioService,
+    private val usuarioRepository: UsuarioRepository
 ) {
     @GetMapping("/{login}")
     fun buscarPerfil(@PathVariable login: String): ResponseEntity<UsuarioResponse> {
@@ -66,6 +69,22 @@ class UsuarioController(
             ResponseEntity.ok(usuarioService.atualizarUsuario(login, request))
         } catch (e: RuntimeException) {
             ResponseEntity.status(400).build()
+        }
+    }
+
+    @GetMapping("/{login}/resumo-semanal")
+    fun resumoSemanal(@PathVariable login: String): ResponseEntity<ResumoSemanalResponse> {
+        return try {
+            val row = usuarioRepository.findResumoSemanal(login)
+            ResponseEntity.ok(
+                ResumoSemanalResponse(
+                    totalDiarios = row[0].toString().toDouble().toInt(),
+                    kmRodados = row[1].toString().toDouble(),
+                    totalOcorrencias = row[2].toString().toDouble().toInt()
+                )
+            )
+        } catch (e: Exception) {
+            ResponseEntity.ok(ResumoSemanalResponse(0, 0.0, 0))
         }
     }
 }

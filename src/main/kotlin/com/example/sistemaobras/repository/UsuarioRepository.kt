@@ -123,4 +123,22 @@ interface UsuarioRepository : JpaRepository<Usuario, UUID> {
     fun findFotoByLogin(
         @org.springframework.data.repository.query.Param("login") login: String
     ): String?
+
+    @Query(
+        value = """
+        SELECT 
+            COUNT(DISTINCT db.id) as total_diarios,
+            COALESCE(SUM(db.medidor_percorrido), 0) as km_rodados,
+            COUNT(DISTINCT o.id) as total_ocorrencias
+        FROM usuarios u
+        LEFT JOIN diarios_bordo db ON db.usuario_id = u.id
+            AND db.aberto_em >= NOW() - INTERVAL '7 days'
+        LEFT JOIN ocorrencias o ON o.diario_id = db.id
+        WHERE u.login = :login
+    """,
+        nativeQuery = true
+    )
+    fun findResumoSemanal(
+        @org.springframework.data.repository.query.Param("login") login: String
+    ): Array<Any>
 }
