@@ -15,23 +15,23 @@ interface AbastecimentoRepository : JpaRepository<Abastecimento, UUID> {
     @Transactional
     @Query(
         value = """
-        INSERT INTO abastecimentos (diario_id, tipo_combustivel, litros, valor_total, posto, veiculo_abastecido_id, registrado_em)
-        SELECT 
-            CASE WHEN :veiculoAbastecidoId IS NOT NULL THEN
-                (SELECT d.id FROM diarios_bordo d 
-                 INNER JOIN veiculos v ON v.id = d.veiculo_id
-                 WHERE v.id = CAST(:veiculoAbastecidoId AS uuid) AND d.status = 'aberto'
-                 LIMIT 1)
-            ELSE
-                (SELECT d.id FROM diarios_bordo d
-                 INNER JOIN usuarios u ON u.id = d.usuario_id
-                 WHERE u.login = :login AND d.status = 'aberto'
-                 LIMIT 1)
-            END,
-            :tipoCombustivel, :litros, :valorTotal, :posto, 
-            CASE WHEN :veiculoAbastecidoId IS NOT NULL THEN CAST(:veiculoAbastecidoId AS uuid) ELSE NULL END,
-            NOW()
-    """,
+    INSERT INTO abastecimentos (diario_id, tipo_combustivel, litros, valor_total, posto, veiculo_abastecido_id, registrado_em)
+    SELECT 
+        CASE WHEN :veiculoAbastecidoId IS NOT NULL THEN
+            (SELECT d.id FROM diarios_bordo d 
+             INNER JOIN veiculos v ON v.id = d.veiculo_id
+             WHERE v.id = CAST(:veiculoAbastecidoId AS uuid) AND d.status = 'aberto'
+             LIMIT 1)
+        ELSE
+            (SELECT d.id FROM diarios_bordo d
+             INNER JOIN usuarios u ON u.id = d.usuario_id
+             WHERE u.login = :login AND d.status = 'aberto'
+             LIMIT 1)
+        END,
+        :tipoCombustivel, :litros, :valorTotal, :posto, 
+        CASE WHEN :veiculoAbastecidoId IS NOT NULL THEN CAST(:veiculoAbastecidoId AS uuid) ELSE NULL END,
+        COALESCE(CAST(:registradoEm AS timestamp), NOW())
+""",
         nativeQuery = true
     )
     fun inserirAbastecimento(
@@ -40,7 +40,8 @@ interface AbastecimentoRepository : JpaRepository<Abastecimento, UUID> {
         @org.springframework.data.repository.query.Param("litros") litros: Double,
         @org.springframework.data.repository.query.Param("valorTotal") valorTotal: Double,
         @org.springframework.data.repository.query.Param("posto") posto: String?,
-        @org.springframework.data.repository.query.Param("veiculoAbastecidoId") veiculoAbastecidoId: String? = null
+        @org.springframework.data.repository.query.Param("veiculoAbastecidoId") veiculoAbastecidoId: String? = null,
+        @org.springframework.data.repository.query.Param("registradoEm") registradoEm: java.time.LocalDateTime? = null
     )
 
     @Query(

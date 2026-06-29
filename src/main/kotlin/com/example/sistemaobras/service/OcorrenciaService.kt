@@ -25,12 +25,20 @@ class OcorrenciaService(
         val diario = diarioBordoRepository.findDiarioAberto(request.loginMotorista)
             ?: throw RuntimeException("Diário aberto não encontrado para o motorista ${request.loginMotorista}")
 
+        val registradoEm = if (request.registradoEm != null)
+            java.time.Instant.ofEpochMilli(request.registradoEm)
+                .atZone(java.time.ZoneId.of("America/Sao_Paulo"))
+                .toLocalDateTime()
+        else
+            java.time.LocalDateTime.now()
+
         val ocorrencia = Ocorrencia(
             diarioId = diario.id,
             tipo = request.tipo,
             descricao = request.descricao,
             latitude = request.latitude?.let { BigDecimal.valueOf(it) },
-            longitude = request.longitude?.let { BigDecimal.valueOf(it) }
+            longitude = request.longitude?.let { BigDecimal.valueOf(it) },
+            registradoEm = registradoEm
         )
 
         val salva = ocorrenciaRepository.save(ocorrencia)
@@ -44,7 +52,6 @@ class OcorrenciaService(
 
         return toResponse(salva)
     }
-
     fun listarPorDiario(diarioId: String): List<OcorrenciaResponse> {
         return ocorrenciaRepository.findByDiarioId(UUID.fromString(diarioId)).map { toResponse(it) }
     }

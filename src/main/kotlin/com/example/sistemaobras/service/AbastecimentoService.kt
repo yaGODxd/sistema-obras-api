@@ -19,15 +19,20 @@ class AbastecimentoService(
 
     fun registrar(request: AbastecimentoRequest): AbastecimentoResponse {
         if (request.veiculoAbastecidoId != null) {
-            // Comboio — verifica se o veículo abastecido tem diário aberto
             val temDiario = diarioRepository.temDiarioAbertoPorVeiculo(request.veiculoAbastecidoId)
             if (temDiario == 0L)
                 throw RuntimeException("Veículo a ser abastecido não tem diário aberto")
         } else {
-            // Normal — verifica diário do motorista
             if (diarioRepository.temDiarioAberto(request.loginMotorista) == 0L)
                 throw RuntimeException("Motorista não tem diário aberto")
         }
+
+        val registradoEm = if (request.registradoEm != null)
+            java.time.Instant.ofEpochMilli(request.registradoEm)
+                .atZone(java.time.ZoneId.of("America/Sao_Paulo"))
+                .toLocalDateTime()
+        else
+            java.time.LocalDateTime.now()
 
         abastecimentoRepository.inserirAbastecimento(
             login = request.loginMotorista,
@@ -35,7 +40,8 @@ class AbastecimentoService(
             litros = request.litros,
             valorTotal = request.valorTotal,
             posto = request.posto,
-            veiculoAbastecidoId = request.veiculoAbastecidoId
+            veiculoAbastecidoId = request.veiculoAbastecidoId,
+            registradoEm = registradoEm
         )
 
         val descLog = "Abastecimento registrado — ${request.tipoCombustivel}, " +
@@ -56,7 +62,7 @@ class AbastecimentoService(
             litros = request.litros,
             valorTotal = request.valorTotal,
             posto = request.posto,
-            registradoEm = java.time.LocalDateTime.now()
+            registradoEm = registradoEm
         )
     }
 

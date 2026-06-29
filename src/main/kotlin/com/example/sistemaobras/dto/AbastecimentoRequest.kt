@@ -6,5 +6,6 @@ data class AbastecimentoRequest(
     val litros: Double,
     val valorTotal: Double,
     val posto: String? = null,
-    val veiculoAbastecidoId: String? = null
+    val veiculoAbastecidoId: String? = null,
+    val registradoEm: Long? = null
 )
