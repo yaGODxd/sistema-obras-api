@@ -43,7 +43,8 @@ class DiarioBordoService(
             usuarioNome = null,
             acao = "ABRIR_DIARIO",
             descricao = "Diário aberto — Veículo: ${veiculo?.descricao ?: request.veiculoId}" +
-                    if (!request.destino.isNullOrEmpty()) ", Destino: ${request.destino}" else ""
+                    if (!request.destino.isNullOrEmpty()) ", Destino: ${request.destino}" else "" +
+                            if (!request.observacao.isNullOrEmpty()) " | ${request.observacao}" else ""
         )
 
         return DiarioResponse(

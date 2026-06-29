@@ -5,5 +5,6 @@ data class AbrirDiarioRequest(
     val veiculoId: String,
     val medidorInicial: Double,
     val destino: String? = null,
-    val motivoUsoId: String? = null
+    val motivoUsoId: String? = null,
+    val observacao: String? = null
 )
