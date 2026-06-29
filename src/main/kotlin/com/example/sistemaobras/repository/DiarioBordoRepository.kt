@@ -49,7 +49,7 @@ interface DiarioBordoRepository : JpaRepository<DiarioBordo, UUID> {
             :destino,
             :medidorInicial,
             'aberto',
-            COALESCE(CAST(:abertoEm AS timestamp), NOW())
+            CASE WHEN :abertoEm IS NOT NULL THEN CAST(:abertoEm AS timestamp) ELSE NOW() END
         FROM usuarios u
         INNER JOIN turnos t ON t.usuario_id = u.id AND t.status = 'aberto'
         WHERE u.login = :login
@@ -74,7 +74,7 @@ interface DiarioBordoRepository : JpaRepository<DiarioBordo, UUID> {
             medidor_final = :medidorFinal,
             medidor_percorrido = :medidorFinal - medidor_inicial,
             observacao_fechamento = :observacao,
-            fechado_em = COALESCE(CAST(:fechadoEm AS timestamp), NOW())
+            fechado_em = CASE WHEN :fechadoEm IS NOT NULL THEN CAST(:fechadoEm AS timestamp) ELSE NOW() END
         WHERE id = CAST(:id AS uuid)
     """,
         nativeQuery = true
