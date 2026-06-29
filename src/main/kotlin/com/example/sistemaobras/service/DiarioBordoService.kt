@@ -24,19 +24,12 @@ class DiarioBordoService(
         if (diarioRepository.temDiarioAberto(request.loginMotorista) > 0)
             throw RuntimeException("Motorista já tem um diário aberto")
 
-        val abertoEm = if (request.abertoEm != null)
-            java.time.Instant.ofEpochMilli(request.abertoEm)
-                .atZone(java.time.ZoneId.of("America/Sao_Paulo"))
-                .toLocalDateTime()
-        else null
-
         diarioRepository.abrirDiario(
             login = request.loginMotorista,
             veiculoId = request.veiculoId,
             motivoUsoId = request.motivoUsoId,
             destino = request.destino,
-            medidorInicial = request.medidorInicial,
-            abertoEm = abertoEm
+            medidorInicial = request.medidorInicial
         )
 
         val diario = diarioRepository.findDiarioAberto(request.loginMotorista)!!
@@ -73,17 +66,10 @@ class DiarioBordoService(
         val diario = diarioRepository.findDiarioAberto(login)
             ?: throw RuntimeException("Não há diário aberto para este motorista")
 
-        val fechadoEm = if (request.fechadoEm != null)
-            java.time.Instant.ofEpochMilli(request.fechadoEm)
-                .atZone(java.time.ZoneId.of("America/Sao_Paulo"))
-                .toLocalDateTime()
-        else null
-
         diarioRepository.fecharDiario(
             id = diario.id.toString(),
             medidorFinal = request.medidorFinal,
-            observacao = request.observacaoFechamento,
-            fechadoEm = fechadoEm
+            observacao = request.observacaoFechamento
         )
 
         val percorrido = request.medidorFinal - diario.medidorInicial.toDouble()
@@ -106,7 +92,7 @@ class DiarioBordoService(
             destino = diario.destino,
             status = "fechado",
             abertoEm = diario.abertoEm,
-            fechadoEm = fechadoEm ?: java.time.LocalDateTime.now()
+            fechadoEm = java.time.LocalDateTime.now()
         )
     }
 
