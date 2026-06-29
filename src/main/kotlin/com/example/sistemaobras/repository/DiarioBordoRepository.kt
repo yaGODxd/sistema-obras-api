@@ -40,20 +40,20 @@ interface DiarioBordoRepository : JpaRepository<DiarioBordo, UUID> {
     @Transactional
     @Query(
         value = """
-            INSERT INTO diarios_bordo (turno_id, usuario_id, veiculo_id, motivo_uso_id, destino, medidor_inicial, status, aberto_em)
-            SELECT 
-                t.id,
-                u.id,
-                CAST(:veiculoId AS uuid),
-                CAST(:motivoUsoId AS uuid),
-                :destino,
-                :medidorInicial,
-                'aberto',
-                NOW()
-            FROM usuarios u
-            INNER JOIN turnos t ON t.usuario_id = u.id AND t.status = 'aberto'
-            WHERE u.login = :login
-        """,
+        INSERT INTO diarios_bordo (turno_id, usuario_id, veiculo_id, motivo_uso_id, destino, medidor_inicial, status, aberto_em)
+        SELECT 
+            t.id,
+            u.id,
+            CAST(:veiculoId AS uuid),
+            CAST(:motivoUsoId AS uuid),
+            :destino,
+            :medidorInicial,
+            'aberto',
+            COALESCE(CAST(:abertoEm AS timestamp), NOW())
+        FROM usuarios u
+        INNER JOIN turnos t ON t.usuario_id = u.id AND t.status = 'aberto'
+        WHERE u.login = :login
+    """,
         nativeQuery = true
     )
     fun abrirDiario(
@@ -61,27 +61,29 @@ interface DiarioBordoRepository : JpaRepository<DiarioBordo, UUID> {
         @org.springframework.data.repository.query.Param("veiculoId") veiculoId: String,
         @org.springframework.data.repository.query.Param("motivoUsoId") motivoUsoId: String?,
         @org.springframework.data.repository.query.Param("destino") destino: String?,
-        @org.springframework.data.repository.query.Param("medidorInicial") medidorInicial: Double
+        @org.springframework.data.repository.query.Param("medidorInicial") medidorInicial: Double,
+        @org.springframework.data.repository.query.Param("abertoEm") abertoEm: java.time.LocalDateTime? = null
     )
 
     @Modifying
     @Transactional
     @Query(
         value = """
-            UPDATE diarios_bordo SET
-                status = 'fechado',
-                medidor_final = :medidorFinal,
-                medidor_percorrido = :medidorFinal - medidor_inicial,
-                observacao_fechamento = :observacao,
-                fechado_em = NOW()
-            WHERE id = CAST(:id AS uuid)
-        """,
+        UPDATE diarios_bordo SET
+            status = 'fechado',
+            medidor_final = :medidorFinal,
+            medidor_percorrido = :medidorFinal - medidor_inicial,
+            observacao_fechamento = :observacao,
+            fechado_em = COALESCE(CAST(:fechadoEm AS timestamp), NOW())
+        WHERE id = CAST(:id AS uuid)
+    """,
         nativeQuery = true
     )
     fun fecharDiario(
         @org.springframework.data.repository.query.Param("id") id: String,
         @org.springframework.data.repository.query.Param("medidorFinal") medidorFinal: Double,
-        @org.springframework.data.repository.query.Param("observacao") observacao: String?
+        @org.springframework.data.repository.query.Param("observacao") observacao: String?,
+        @org.springframework.data.repository.query.Param("fechadoEm") fechadoEm: java.time.LocalDateTime? = null
     )
 
     @Query(

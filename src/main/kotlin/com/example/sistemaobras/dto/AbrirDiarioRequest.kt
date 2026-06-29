@@ -6,5 +6,6 @@ data class AbrirDiarioRequest(
     val medidorInicial: Double,
     val destino: String? = null,
     val motivoUsoId: String? = null,
-    val observacao: String? = null
+    val observacao: String? = null,
+    val abertoEm: Long? = null
 )
