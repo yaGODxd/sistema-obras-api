@@ -38,6 +38,9 @@ class DiarioBordoService(
             veiculoRepository.findById(java.util.UUID.fromString(request.veiculoId)).orElse(null)
         } catch (e: Exception) { null }
 
+        // Marca o veículo como em_uso
+        veiculoRepository.atualizarStatus(request.veiculoId, "em_uso")
+
         logService.registrar(
             usuarioLogin = request.loginMotorista,
             usuarioNome = null,
@@ -71,6 +74,9 @@ class DiarioBordoService(
             medidorFinal = request.medidorFinal,
             observacao = request.observacaoFechamento
         )
+
+        // Devolve o veículo para disponivel ao fechar o diário
+        veiculoRepository.atualizarStatus(diario.veiculoId.toString(), "disponivel")
 
         val percorrido = request.medidorFinal - diario.medidorInicial.toDouble()
 
