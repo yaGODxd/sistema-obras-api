@@ -15,11 +15,12 @@ class DiarioBordoController(
 ) {
 
     @PostMapping("/abrir")
-    fun abrirDiario(@RequestBody request: AbrirDiarioRequest): ResponseEntity<DiarioResponse> {
+    fun abrirDiario(@RequestBody request: AbrirDiarioRequest): ResponseEntity<Any> {
         return try {
             ResponseEntity.ok(diarioService.abrirDiario(request))
         } catch (e: RuntimeException) {
-            ResponseEntity.status(400).build()
+            // Retorna a mensagem de erro no corpo pra facilitar debug no app
+            ResponseEntity.status(400).body(mapOf("erro" to (e.message ?: "Erro ao abrir diário")))
         }
     }
 
@@ -27,11 +28,11 @@ class DiarioBordoController(
     fun fecharDiario(
         @PathVariable login: String,
         @RequestBody request: FecharDiarioRequest
-    ): ResponseEntity<DiarioResponse> {
+    ): ResponseEntity<Any> {
         return try {
             ResponseEntity.ok(diarioService.fecharDiario(login, request))
         } catch (e: RuntimeException) {
-            ResponseEntity.status(400).build()
+            ResponseEntity.status(400).body(mapOf("erro" to (e.message ?: "Erro ao fechar diário")))
         }
     }
 
