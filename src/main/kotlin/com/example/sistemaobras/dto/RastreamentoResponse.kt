@@ -13,10 +13,13 @@ data class RastreamentoResponse(
 )
 
 data class UltimaPosicaoResponse(
+    val diarioId: UUID?,
     val login: String,
     val nomeCompleto: String,
     val latitude: Double,
     val longitude: Double,
     val registradoEm: LocalDateTime?,
-    val veiculoDescricao: String?
+    val veiculoDescricao: String?,
+    val veiculoPlaca: String?,
+    val destino: String?
 )

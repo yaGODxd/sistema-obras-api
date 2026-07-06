@@ -42,20 +42,25 @@ interface RastreamentoRepository : JpaRepository<RastreamentoGps, UUID> {
         @org.springframework.data.repository.query.Param("diarioId") diarioId: String
     ): List<RastreamentoGps>
 
+    // Query atualizada: inclui d.id (diarioId), v.placa e d.destino
+    // DISTINCT ON garante somente o ponto mais recente por diário aberto
     @Query(
         value = """
-            SELECT DISTINCT ON (u.login)
-                u.login,
-                u.nome_completo,
-                r.latitude,
-                r.longitude,
-                r.registrado_em,
-                v.descricao as veiculo_descricao
+            SELECT DISTINCT ON (d.id)
+                d.id            AS diario_id,
+                u.login         AS login,
+                u.nome_completo AS nome_completo,
+                r.latitude      AS latitude,
+                r.longitude     AS longitude,
+                r.registrado_em AS registrado_em,
+                v.descricao     AS veiculo_descricao,
+                v.placa         AS veiculo_placa,
+                d.destino       AS destino
             FROM rastreamento_gps r
             INNER JOIN diarios_bordo d ON d.id = r.diario_id AND d.status = 'aberto'
             INNER JOIN usuarios u ON u.id = d.usuario_id
             INNER JOIN veiculos v ON v.id = d.veiculo_id
-            ORDER BY u.login, r.registrado_em DESC
+            ORDER BY d.id, r.registrado_em DESC
         """,
         nativeQuery = true
     )

@@ -40,17 +40,21 @@ class RastreamentoService(
         }
     }
 
+    // Atualizado: mapeia os 9 campos retornados pela query (índices 0–8)
     fun buscarUltimasPosicoes(): List<UltimaPosicaoResponse> {
         return rastreamentoRepository.findUltimasPosicoes().map { row ->
             UltimaPosicaoResponse(
-                login = row[0].toString(),
-                nomeCompleto = row[1].toString(),
-                latitude = row[2].toString().toDouble(),
-                longitude = row[3].toString().toDouble(),
-                registradoEm = if (row[4] != null)
-                    LocalDateTime.parse(row[4].toString().replace(" ", "T"))
-                else null,
-                veiculoDescricao = row[5]?.toString()
+                diarioId   = row[0]?.let { UUID.fromString(it.toString()) },
+                login      = row[1].toString(),
+                nomeCompleto = row[2].toString(),
+                latitude   = row[3].toString().toDouble(),
+                longitude  = row[4].toString().toDouble(),
+                registradoEm = row[5]?.let {
+                    LocalDateTime.parse(it.toString().replace(" ", "T"))
+                },
+                veiculoDescricao = row[6]?.toString(),
+                veiculoPlaca     = row[7]?.toString(),
+                destino          = row[8]?.toString()
             )
         }
     }
