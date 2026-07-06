@@ -102,7 +102,7 @@ interface VeiculoRepository : JpaRepository<Veiculo, UUID> {
     @Modifying
     @Transactional
     @Query(
-        value = "UPDATE veiculos SET status = :status WHERE id = CAST(:id AS uuid)",
+        value = "UPDATE veiculos SET status = CAST(:status AS status_veiculo) WHERE id = CAST(:id AS uuid)",
         nativeQuery = true
     )
     fun atualizarStatus(
