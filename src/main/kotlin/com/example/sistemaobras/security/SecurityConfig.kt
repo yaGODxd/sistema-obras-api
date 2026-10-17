@@ -41,6 +41,10 @@ class SecurityConfig {
             .exceptionHandling { it.authenticationEntryPoint(HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)) }
             .addFilterBefore(JwtAuthFilter(jwtService), UsernamePasswordAuthenticationFilter::class.java)
             .authorizeHttpRequests { auth ->
+                // Página interna de erros do Spring. Liberada para que 404 e 500
+                // apareçam como são, em vez de virarem 401.
+                auth.requestMatchers("/error").permitAll()
+
                 // Rotas que EXIGEM token. Precisam vir antes das rotas liberadas.
                 auth.requestMatchers(HttpMethod.GET, "/auth/me").authenticated()
 
