@@ -2,10 +2,14 @@ package com.example.sistemaobras.security
 
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.http.HttpMethod
+import org.springframework.http.HttpStatus
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
 import org.springframework.security.web.SecurityFilterChain
+import org.springframework.security.web.authentication.HttpStatusEntryPoint
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
 import org.springframework.web.cors.CorsConfiguration
 import org.springframework.web.cors.CorsConfigurationSource
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource
@@ -28,12 +32,26 @@ class SecurityConfig {
     }
 
     @Bean
-    fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
+    fun securityFilterChain(http: HttpSecurity, jwtService: JwtService): SecurityFilterChain {
         http
             .cors { it.configurationSource(corsConfigurationSource()) }
             .csrf { it.disable() }
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
+            // Sem token (ou token inválido) em rota protegida: responde 401
+            .exceptionHandling { it.authenticationEntryPoint(HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)) }
+            .addFilterBefore(JwtAuthFilter(jwtService), UsernamePasswordAuthenticationFilter::class.java)
             .authorizeHttpRequests { auth ->
+                // Rotas que EXIGEM token. Precisam vir antes das rotas liberadas.
+                auth.requestMatchers(HttpMethod.GET, "/auth/me").authenticated()
+
+                // Assinatura do diário e PIN
+                auth.requestMatchers("/usuarios/me/**").authenticated()
+                auth.requestMatchers(HttpMethod.GET, "/diarios/meus").authenticated()
+                auth.requestMatchers(HttpMethod.PUT, "/diarios/*").authenticated()
+                auth.requestMatchers(HttpMethod.POST, "/diarios/*/assinar").authenticated()
+                auth.requestMatchers(HttpMethod.GET, "/diarios/*/verificar").authenticated()
+
+                // Rotas antigas, ainda liberadas até o front enviar o token
                 auth.requestMatchers(
                     "/auth/**",
                     "/usuarios/**",

@@ -2,6 +2,7 @@ package com.example.sistemaobras.security
 
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
+import java.security.MessageDigest
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 import java.util.Base64
@@ -36,7 +37,7 @@ class JwtService {
             val partes = token.split(".")
             if (partes.size != 3) return false
             val assinaturaEsperada = assinar("${partes[0]}.${partes[1]}")
-            if (partes[2] != assinaturaEsperada) return false
+            if (!MessageDigest.isEqual(partes[2].toByteArray(), assinaturaEsperada.toByteArray())) return false
             val payload = String(Base64.getUrlDecoder().decode(partes[1]))
             val exp = Regex("\"exp\":(\\d+)").find(payload)?.groupValues?.get(1)?.toLong() ?: return false
             Instant.now().toEpochMilli() < exp
@@ -49,6 +50,15 @@ class JwtService {
         return try {
             val payload = String(Base64.getUrlDecoder().decode(token.split(".")[1]))
             Regex("\"sub\":\"([^\"]+)\"").find(payload)?.groupValues?.get(1)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    fun extrairPerfil(token: String): String? {
+        return try {
+            val payload = String(Base64.getUrlDecoder().decode(token.split(".")[1]))
+            Regex("\"perfil\":\"([^\"]+)\"").find(payload)?.groupValues?.get(1)
         } catch (e: Exception) {
             null
         }
