@@ -1,0 +1,51 @@
+-- Migrações da API SGFE.
+-- Regras: idempotente (IF NOT EXISTS), aditiva e compatível com o código anterior.
+-- Ordem em produção: o Yago roda o SQL e DEPOIS faz o deploy do código.
+-- Backfill (correção de dados existentes) fica em bloco separado e comentado.
+
+-- =====================================================================
+-- 19/10/2026 - Parte 2 (validações e unicidade)
+-- Nada obrigatório: a API já confere login, CPF e placa antes de gravar.
+-- Os blocos abaixo são SUGESTÕES COMENTADAS. Rode só o que decidir rodar.
+-- =====================================================================
+
+-- 1) Ver os índices e restrições únicas que já existem (só leitura):
+-- SELECT tablename, indexname, indexdef
+-- FROM pg_indexes
+-- WHERE schemaname = 'public' AND tablename IN ('usuarios', 'veiculos')
+-- ORDER BY tablename, indexname;
+
+-- 2) Procurar duplicados que impediriam criar os índices (só leitura):
+-- CPF (compara só os dígitos):
+-- SELECT regexp_replace(cpf, '[^0-9]', '', 'g') AS cpf_digitos, COUNT(*) AS qtd,
+--        string_agg(login, ', ') AS logins
+-- FROM usuarios
+-- GROUP BY 1 HAVING COUNT(*) > 1;
+--
+-- Placa (sem traço/espaço, maiúsculas, ignorando vazia e veículo inativo):
+-- SELECT upper(regexp_replace(placa, '[^A-Za-z0-9]', '', 'g')) AS placa_normalizada, COUNT(*) AS qtd,
+--        string_agg(descricao, ', ') AS veiculos
+-- FROM veiculos
+-- WHERE placa IS NOT NULL AND placa <> '' AND status != 'inativo'
+-- GROUP BY 1 HAVING COUNT(*) > 1;
+--
+-- Login:
+-- SELECT login, COUNT(*) FROM usuarios GROUP BY login HAVING COUNT(*) > 1;
+
+-- 3) Índices únicos (só depois que as consultas do passo 2 voltarem vazias).
+-- Se o passo 1 já mostrar um índice único equivalente, não crie outro.
+-- CREATE UNIQUE INDEX IF NOT EXISTS ux_usuarios_login ON usuarios (login);
+-- CREATE UNIQUE INDEX IF NOT EXISTS ux_usuarios_cpf ON usuarios ((regexp_replace(cpf, '[^0-9]', '', 'g')));
+-- CREATE UNIQUE INDEX IF NOT EXISTS ux_veiculos_placa
+--     ON veiculos ((upper(regexp_replace(placa, '[^A-Za-z0-9]', '', 'g'))))
+--     WHERE placa IS NOT NULL AND placa <> '' AND status != 'inativo';
+
+-- 4) Tamanho das colunas de texto (só leitura). Mande o resultado para
+--    a API ganhar limites de tamanho iguais aos do banco:
+-- SELECT table_name, column_name, data_type, character_maximum_length, is_nullable
+-- FROM information_schema.columns
+-- WHERE table_schema = 'public'
+--   AND table_name IN ('usuarios', 'veiculos', 'mecanicos', 'postos', 'manutencoes', 'manutencao_pecas',
+--                      'abastecimentos', 'ocorrencias', 'diarios_bordo', 'checklist_itens')
+--   AND data_type IN ('character varying', 'character')
+-- ORDER BY table_name, ordinal_position;

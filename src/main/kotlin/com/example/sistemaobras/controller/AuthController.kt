@@ -1,8 +1,10 @@
 package com.example.sistemaobras.controller
 
+import jakarta.validation.Valid
 import com.example.sistemaobras.dto.CriarUsuarioRequest
 import com.example.sistemaobras.dto.LoginRequest
 import com.example.sistemaobras.dto.LoginResponse
+import com.example.sistemaobras.exception.StatusErroFixo
 import com.example.sistemaobras.service.UsuarioService
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.Authentication
@@ -14,23 +16,15 @@ class AuthController(
     private val usuarioService: UsuarioService
 ) {
     @PostMapping("/login")
+    @StatusErroFixo(401)
     fun login(@RequestBody request: LoginRequest): ResponseEntity<LoginResponse> {
-        return try {
-            val response = usuarioService.login(request)
-            ResponseEntity.ok(response)
-        } catch (e: RuntimeException) {
-            ResponseEntity.status(401).build()
-        }
+        return ResponseEntity.ok(usuarioService.login(request))
     }
 
     @PostMapping("/cadastrar")
-    fun cadastrar(@RequestBody request: CriarUsuarioRequest): ResponseEntity<LoginResponse> {
-        return try {
-            val response = usuarioService.criar(request)
-            ResponseEntity.status(201).body(response)
-        } catch (e: RuntimeException) {
-            ResponseEntity.status(400).build()
-        }
+    @StatusErroFixo(400)
+    fun cadastrar(@Valid @RequestBody request: CriarUsuarioRequest): ResponseEntity<LoginResponse> {
+        return ResponseEntity.status(201).body(usuarioService.criar(request))
     }
 
     // Devolve quem é o dono do token. Serve para testar a autenticação.

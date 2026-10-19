@@ -1,5 +1,7 @@
 package com.example.sistemaobras.service
 
+import com.example.sistemaobras.exception.NaoEncontradoException
+import com.example.sistemaobras.exception.RegraNegocioException
 import com.example.sistemaobras.dto.TurnoResponse
 import com.example.sistemaobras.repository.TurnoRepository
 import com.example.sistemaobras.repository.UsuarioRepository
@@ -13,10 +15,10 @@ class TurnoService(
 
     fun abrirTurno(login: String): TurnoResponse {
         val usuario = usuarioRepository.findByLogin(login)
-            ?: throw RuntimeException("Usuário não encontrado")
+            ?: throw NaoEncontradoException("Usuário não encontrado.")
 
         if (turnoRepository.temTurnoAberto(login) > 0)
-            throw RuntimeException("Já existe um turno aberto para este usuário")
+            throw RegraNegocioException("Já existe um turno aberto para este usuário.")
 
         turnoRepository.abrirTurno(login)
 
@@ -30,7 +32,7 @@ class TurnoService(
 
     fun fecharTurno(login: String): TurnoResponse {
         if (turnoRepository.temTurnoAberto(login) == 0L)
-            throw RuntimeException("Não há turno aberto para este usuário")
+            throw RegraNegocioException("Não há turno aberto para este usuário.")
 
         turnoRepository.fecharTurno(login)
 

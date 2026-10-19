@@ -1,5 +1,6 @@
 package com.example.sistemaobras.service
 
+import com.example.sistemaobras.exception.RegraNegocioException
 import com.example.sistemaobras.dto.AbrirDiarioRequest
 import com.example.sistemaobras.dto.DiarioResponse
 import com.example.sistemaobras.dto.DiarioResumoMensalResponse
@@ -19,10 +20,10 @@ class DiarioBordoService(
 
     fun abrirDiario(request: AbrirDiarioRequest): DiarioResponse {
         if (turnoRepository.temTurnoAberto(request.loginMotorista) == 0L)
-            throw RuntimeException("Motorista não tem turno aberto")
+            throw RegraNegocioException("Motorista não tem turno aberto")
 
         if (diarioRepository.temDiarioAberto(request.loginMotorista) > 0)
-            throw RuntimeException("Motorista já tem um diário aberto")
+            throw RegraNegocioException("Motorista já tem um diário aberto")
 
         diarioRepository.abrirDiario(
             login = request.loginMotorista,
@@ -67,7 +68,7 @@ class DiarioBordoService(
 
     fun fecharDiario(login: String, request: FecharDiarioRequest): DiarioResponse {
         val diario = diarioRepository.findDiarioAberto(login)
-            ?: throw RuntimeException("Não há diário aberto para este motorista")
+            ?: throw RegraNegocioException("Não há diário aberto para este motorista")
 
         diarioRepository.fecharDiario(
             id = diario.id.toString(),

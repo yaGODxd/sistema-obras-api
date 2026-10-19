@@ -1,0 +1,253 @@
+package com.example.sistemaobras.controller
+
+import com.example.sistemaobras.exception.ConflitoException
+import com.example.sistemaobras.exception.NaoAutorizadoException
+import com.example.sistemaobras.exception.NaoEncontradoException
+import com.example.sistemaobras.exception.RegraNegocioException
+import com.example.sistemaobras.repository.*
+import com.example.sistemaobras.security.JwtService
+import com.example.sistemaobras.security.SecurityConfig
+import com.example.sistemaobras.service.*
+import org.junit.jupiter.api.Test
+import org.mockito.ArgumentMatchers.anyString
+import org.mockito.BDDMockito.given
+import org.mockito.BDDMockito.willThrow
+import org.mockito.Mockito
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest
+import org.springframework.context.annotation.Import
+import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.http.MediaType
+import org.springframework.test.context.bean.override.mockito.MockitoBean
+import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import java.sql.SQLException
+
+// Uma rota de cada controller alterado na Parte 1: status antigo mantido, corpo {"erro"}.
+// Usa a SecurityConfig real (para testar o 401) e mocks no lugar de services e repositórios.
+@WebMvcTest
+@Import(SecurityConfig::class)
+class ErrosDasRotasTest {
+
+    @Autowired lateinit var mockMvc: MockMvc
+
+    @MockitoBean lateinit var jwtService: JwtService
+    @MockitoBean lateinit var usuarioService: UsuarioService
+    @MockitoBean lateinit var veiculoService: VeiculoService
+    @MockitoBean lateinit var manutencaoService: ManutencaoService
+    @MockitoBean lateinit var abastecimentoService: AbastecimentoService
+    @MockitoBean lateinit var ocorrenciaService: OcorrenciaService
+    @MockitoBean lateinit var rastreamentoService: RastreamentoService
+    @MockitoBean lateinit var turnoService: TurnoService
+    @MockitoBean lateinit var diarioBordoService: DiarioBordoService
+    @MockitoBean lateinit var assinaturaService: AssinaturaService
+    @MockitoBean lateinit var logService: LogService
+    @MockitoBean lateinit var usuarioRepository: UsuarioRepository
+    @MockitoBean lateinit var mecanicoRepository: MecanicoRepository
+    @MockitoBean lateinit var postoRepository: PostoRepository
+    @MockitoBean lateinit var secretariaRepository: SecretariaRepository
+    @MockitoBean lateinit var checklistTemplateRepository: ChecklistTemplateRepository
+    @MockitoBean lateinit var checklistItemRepository: ChecklistItemRepository
+    @MockitoBean lateinit var checklistRespostaRepository: ChecklistRespostaRepository
+
+    // Mockito.any() devolve null; o cast evita a checagem de nulo do Kotlin na chamada.
+    @Suppress("UNCHECKED_CAST")
+    private fun <T> qualquer(): T {
+        Mockito.any<T>()
+        return null as T
+    }
+
+    private fun json(req: MockHttpServletRequestBuilder, corpo: String) =
+        mockMvc.perform(req.contentType(MediaType.APPLICATION_JSON).content(corpo))
+
+    private val uuid = "11111111-1111-1111-1111-111111111111"
+
+    @Test
+    fun `login errado responde 401 com mensagem`() {
+        given(usuarioService.login(qualquer())).willThrow(NaoAutorizadoException("Login ou senha incorretos."))
+        json(post("/auth/login"), """{"login":"x","senha":"y"}""")
+            .andExpect(status().isUnauthorized)
+            .andExpect(jsonPath("$.erro").value("Login ou senha incorretos."))
+    }
+
+    @Test
+    fun `cadastro com login repetido mantem 400`() {
+        given(usuarioService.criar(qualquer())).willThrow(ConflitoException("Já existe um usuário com este login."))
+        json(post("/auth/cadastrar"), """{"nomeCompleto":"A","cpf":"1","login":"a","senha":"b"}""")
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.erro").value("Já existe um usuário com este login."))
+    }
+
+    @Test
+    fun `rota protegida sem token responde 401 com corpo`() {
+        mockMvc.perform(get("/auth/me"))
+            .andExpect(status().isUnauthorized)
+            .andExpect(jsonPath("$.erro").value("Não autenticado. Faça login novamente."))
+    }
+
+    @Test
+    fun `usuario inexistente mantem 404 no GET e 400 no PUT`() {
+        given(usuarioService.buscarPerfil("joao")).willThrow(NaoEncontradoException("Usuário não encontrado."))
+        mockMvc.perform(get("/usuarios/joao"))
+            .andExpect(status().isNotFound)
+            .andExpect(jsonPath("$.erro").value("Usuário não encontrado."))
+
+        given(usuarioService.atualizarUsuario(anyString(), qualquer())).willThrow(NaoEncontradoException("Usuário não encontrado."))
+        json(put("/usuarios/joao"), "{}")
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.erro").value("Usuário não encontrado."))
+    }
+
+    @Test
+    fun `veiculo inexistente no PUT mantem 400`() {
+        willThrow(NaoEncontradoException("Veículo não encontrado.")).given(veiculoService).atualizar(anyString(), qualquer())
+        json(put("/veiculos/$uuid"), """{"tipoId":"$uuid","descricao":"Caminhão"}""")
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.erro").value("Veículo não encontrado."))
+    }
+
+    @Test
+    fun `erro inesperado em rota sem status fixo responde 500`() {
+        given(veiculoService.listarTodos()).willThrow(IllegalStateException("falha"))
+        mockMvc.perform(get("/veiculos"))
+            .andExpect(status().isInternalServerError)
+            .andExpect(jsonPath("$.erro").value("Erro interno. Tente novamente."))
+    }
+
+    @Test
+    fun `mecanico inexistente no PUT mantem 400`() {
+        json(put("/mecanicos/$uuid"), """{"nome":"Ze"}""")
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.erro").value("Mecânico não encontrado."))
+    }
+
+    @Test
+    fun `posto com id invalido no PUT mantem 400`() {
+        json(put("/postos/abc"), """{"nome":"Posto"}""")
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.erro").value("Identificador inválido."))
+    }
+
+    @Test
+    fun `cadastro de mecanico sem nome responde 400 pelo Spring`() {
+        json(post("/mecanicos"), "{}")
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.erro").value("Campo ausente ou com valor inválido: nome."))
+    }
+
+    @Test
+    fun `manutencao mantem 404 no GET e 400 no POST`() {
+        given(manutencaoService.buscarPorId(uuid)).willThrow(NaoEncontradoException("Manutenção não encontrada."))
+        mockMvc.perform(get("/manutencoes/$uuid"))
+            .andExpect(status().isNotFound)
+            .andExpect(jsonPath("$.erro").value("Manutenção não encontrada."))
+
+        given(manutencaoService.abrir(qualquer())).willThrow(IllegalStateException("falha no banco"))
+        json(post("/manutencoes"), """{"veiculoId":"$uuid","tipo":"corretiva","descricao":"Freio"}""")
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.erro").value("Erro interno. Tente novamente."))
+    }
+
+    @Test
+    fun `abastecimento sem diario aberto mantem 400 com mensagem`() {
+        given(abastecimentoService.registrar(qualquer())).willThrow(RegraNegocioException("Motorista não tem diário aberto"))
+        json(post("/abastecimentos"), """{"loginMotorista":"m","tipoCombustivel":"diesel","litros":10,"valorTotal":60}""")
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.erro").value("Motorista não tem diário aberto"))
+    }
+
+    @Test
+    fun `ocorrencia sem diario aberto mantem 400 com mensagem`() {
+        given(ocorrenciaService.registrar(qualquer())).willThrow(RegraNegocioException("Motorista não tem diário aberto"))
+        json(post("/ocorrencias"), """{"loginMotorista":"m","tipo":"pneu","descricao":"furado"}""")
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.erro").value("Motorista não tem diário aberto"))
+    }
+
+    @Test
+    fun `rastreamento com erro do banco mantem 400`() {
+        willThrow(DataIntegrityViolationException("x", SQLException("violates foreign key", "23503")))
+            .given(rastreamentoService).registrarPonto(qualquer())
+        json(post("/rastreamento"), """{"loginMotorista":"m","latitude":1,"longitude":2}""")
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.erro").value("Registro relacionado não encontrado ou ainda em uso."))
+    }
+
+    @Test
+    fun `turno ja aberto mantem 400 com mensagem`() {
+        given(turnoService.abrirTurno("m")).willThrow(RegraNegocioException("Já existe um turno aberto para este usuário."))
+        json(post("/turnos/abrir"), """{"login":"m"}""")
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.erro").value("Já existe um turno aberto para este usuário."))
+    }
+
+    @Test
+    fun `abrir diario sem turno mantem 400 e a mesma mensagem de antes`() {
+        given(diarioBordoService.abrirDiario(qualquer())).willThrow(RegraNegocioException("Motorista não tem turno aberto"))
+        json(post("/diarios/abrir"), """{"loginMotorista":"m","veiculoId":"$uuid","medidorInicial":100}""")
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.erro").value("Motorista não tem turno aberto"))
+    }
+
+    // ---------- Parte 2: validações ----------
+
+    @Test
+    fun `valor negativo e recusado com 400`() {
+        json(post("/abastecimentos"), """{"loginMotorista":"m","tipoCombustivel":"diesel","litros":-1,"valorTotal":60}""")
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.erro").value("Campo 'litros' não pode ser negativo."))
+        json(post("/diarios/fechar/m"), """{"medidorFinal":-5}""")
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.erro").value("Campo 'medidorFinal' não pode ser negativo."))
+        json(post("/veiculos"), """{"tipoId":"$uuid","descricao":"Caminhão","medidorAtual":-1}""")
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.erro").value("Campo 'medidorAtual' não pode ser negativo."))
+    }
+
+    @Test
+    fun `peca com quantidade negativa dentro da manutencao e recusada`() {
+        json(post("/manutencoes"), """{"veiculoId":"$uuid","tipo":"corretiva","descricao":"Freio",
+            "pecas":[{"nomePeca":"Pastilha","quantidade":-2,"valorUnitario":10}]}""")
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.erro").value("Campo 'pecas[0].quantidade' não pode ser negativo."))
+        json(post("/manutencoes/$uuid/pecas"), """{"nomePeca":"Pastilha","quantidade":1,"valorUnitario":-10}""")
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.erro").value("Campo 'valorUnitario' não pode ser negativo."))
+    }
+
+    @Test
+    fun `texto obrigatorio em branco e recusado`() {
+        json(post("/postos"), """{"nome":"  "}""")
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.erro").value("Campo 'nome' é obrigatório."))
+        json(post("/auth/cadastrar"), """{"nomeCompleto":"A","cpf":"","login":"a","senha":"b"}""")
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.erro").value("Campo 'cpf' é obrigatório."))
+    }
+
+    @Test
+    fun `perfil desconhecido e recusado antes de chegar no banco`() {
+        json(post("/auth/cadastrar"), """{"nomeCompleto":"A","cpf":"1","login":"a","senha":"b","perfil":"admin"}""")
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.erro").value("Campo 'perfil' deve ser gestor ou motorista."))
+    }
+
+    @Test
+    fun `placa repetida mantem 400 com mensagem`() {
+        willThrow(ConflitoException("Já existe um veículo com esta placa.")).given(veiculoService).cadastrar(qualquer())
+        json(post("/veiculos"), """{"tipoId":"$uuid","placa":"ABC1D23","descricao":"Caminhão"}""")
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.erro").value("Já existe um veículo com esta placa."))
+    }
+
+    @Test
+    fun `sucesso continua com o mesmo status`() {
+        json(post("/veiculos"), """{"tipoId":"$uuid","descricao":"Caminhão"}""")
+            .andExpect(status().isCreated)
+    }
+}

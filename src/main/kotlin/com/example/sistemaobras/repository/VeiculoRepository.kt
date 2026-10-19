@@ -147,4 +147,20 @@ interface VeiculoRepository : JpaRepository<Veiculo, UUID> {
     fun findUltimoMotorista(
         @org.springframework.data.repository.query.Param("veiculoId") veiculoId: String
     ): List<Array<Any>>
+
+    // Placa comparada sem traço/espaço e em maiúsculas. Veículo inativo não conta
+    // (não há como reativar pela API). ignorarId: o próprio veículo na edição.
+    @Query(
+        value = """
+        SELECT COUNT(*) FROM veiculos
+        WHERE upper(regexp_replace(placa, '[^A-Za-z0-9]', '', 'g')) = :placa
+        AND status != 'inativo'
+        AND (CAST(:ignorarId AS uuid) IS NULL OR id <> CAST(:ignorarId AS uuid))
+        """,
+        nativeQuery = true
+    )
+    fun contarPorPlaca(
+        @org.springframework.data.repository.query.Param("placa") placa: String,
+        @org.springframework.data.repository.query.Param("ignorarId") ignorarId: String?
+    ): Long
 }

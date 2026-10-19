@@ -1,8 +1,10 @@
 package com.example.sistemaobras.controller
 
+import jakarta.validation.Valid
 import com.example.sistemaobras.dto.OcorrenciaDetalhadaResponse
 import com.example.sistemaobras.dto.OcorrenciaRequest
 import com.example.sistemaobras.dto.OcorrenciaResponse
+import com.example.sistemaobras.exception.StatusErroFixo
 import com.example.sistemaobras.service.OcorrenciaService
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
@@ -14,12 +16,9 @@ class OcorrenciaController(
 ) {
 
     @PostMapping
-    fun registrar(@RequestBody request: OcorrenciaRequest): ResponseEntity<OcorrenciaResponse> {
-        return try {
-            ResponseEntity.ok(ocorrenciaService.registrar(request))
-        } catch (e: RuntimeException) {
-            ResponseEntity.status(400).build()
-        }
+    @StatusErroFixo(400)
+    fun registrar(@Valid @RequestBody request: OcorrenciaRequest): ResponseEntity<OcorrenciaResponse> {
+        return ResponseEntity.ok(ocorrenciaService.registrar(request))
     }
 
     @GetMapping("/diario/{diarioId}")

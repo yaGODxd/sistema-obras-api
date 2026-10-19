@@ -141,4 +141,11 @@ interface UsuarioRepository : JpaRepository<Usuario, UUID> {
     fun findResumoSemanal(
         @org.springframework.data.repository.query.Param("login") login: String
     ): List<Array<Any>>
+
+    // CPF comparado só pelos dígitos (com ou sem máscara). Conta também inativos.
+    @Query(
+        value = "SELECT COUNT(*) FROM usuarios WHERE regexp_replace(cpf, '[^0-9]', '', 'g') = :cpfDigitos",
+        nativeQuery = true
+    )
+    fun contarPorCpf(@org.springframework.data.repository.query.Param("cpfDigitos") cpfDigitos: String): Long
 }

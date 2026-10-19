@@ -1,5 +1,6 @@
 package com.example.sistemaobras.controller
 
+import jakarta.validation.Valid
 import com.example.sistemaobras.dto.*
 import com.example.sistemaobras.entity.ChecklistItem
 import com.example.sistemaobras.entity.ChecklistResposta
@@ -53,7 +54,7 @@ class ChecklistController(
     }
 
     @PostMapping("/itens")
-    fun adicionarItem(@RequestBody request: ChecklistItemRequest): ResponseEntity<ChecklistItemResponse> {
+    fun adicionarItem(@Valid @RequestBody request: ChecklistItemRequest): ResponseEntity<ChecklistItemResponse> {
         val item = itemRepository.save(ChecklistItem(
             templateId = UUID.fromString(request.templateId),
             descricao = request.descricao,

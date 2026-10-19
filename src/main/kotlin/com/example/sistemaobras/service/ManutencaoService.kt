@@ -1,5 +1,6 @@
 package com.example.sistemaobras.service
 
+import com.example.sistemaobras.exception.NaoEncontradoException
 import com.example.sistemaobras.dto.*
 import com.example.sistemaobras.entity.Manutencao
 import com.example.sistemaobras.entity.ManutencaoPeca
@@ -21,7 +22,7 @@ class ManutencaoService(
 
     fun abrir(request: ManutencaoRequest): ManutencaoResponse {
         val veiculo = veiculoRepository.findById(UUID.fromString(request.veiculoId))
-            .orElseThrow { RuntimeException("Veículo não encontrado") }
+            .orElseThrow { NaoEncontradoException("Veículo não encontrado.") }
 
         val manutencao = manutencaoRepository.save(Manutencao(
             veiculoId = veiculo.id,
@@ -61,7 +62,7 @@ class ManutencaoService(
 
     fun atualizarStatus(id: String, request: AtualizarStatusRequest): ManutencaoResponse {
         val manutencao = manutencaoRepository.findById(UUID.fromString(id))
-            .orElseThrow { RuntimeException("Manutenção não encontrada") }
+            .orElseThrow { NaoEncontradoException("Manutenção não encontrada.") }
 
         val atualizada = manutencao.copy(
             status = request.status,
@@ -106,7 +107,7 @@ class ManutencaoService(
 
     fun buscarPorId(id: String): ManutencaoResponse {
         val manutencao = manutencaoRepository.findById(UUID.fromString(id))
-            .orElseThrow { RuntimeException("Manutenção não encontrada") }
+            .orElseThrow { NaoEncontradoException("Manutenção não encontrada.") }
         val pecas = manutencaoPecaRepository.findByManutencaoId(manutencao.id!!)
         val veiculo = veiculoRepository.findById(manutencao.veiculoId!!).orElseThrow()
         return toResponse(manutencao, pecas, veiculo.descricao, veiculo.placa)

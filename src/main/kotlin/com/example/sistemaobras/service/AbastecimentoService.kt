@@ -1,5 +1,6 @@
 package com.example.sistemaobras.service
 
+import com.example.sistemaobras.exception.RegraNegocioException
 import com.example.sistemaobras.dto.AbastecimentoDetalhadoResponse
 import com.example.sistemaobras.dto.AbastecimentoRequest
 import com.example.sistemaobras.dto.AbastecimentoResponse
@@ -21,10 +22,10 @@ class AbastecimentoService(
         if (request.veiculoAbastecidoId != null) {
             val temDiario = diarioRepository.temDiarioAbertoPorVeiculo(request.veiculoAbastecidoId)
             if (temDiario == 0L)
-                throw RuntimeException("Veículo a ser abastecido não tem diário aberto")
+                throw RegraNegocioException("Veículo a ser abastecido não tem diário aberto")
         } else {
             if (diarioRepository.temDiarioAberto(request.loginMotorista) == 0L)
-                throw RuntimeException("Motorista não tem diário aberto")
+                throw RegraNegocioException("Motorista não tem diário aberto")
         }
 
         val registradoEm = if (request.registradoEm != null)

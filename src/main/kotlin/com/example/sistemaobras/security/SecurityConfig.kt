@@ -3,12 +3,10 @@ package com.example.sistemaobras.security
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.HttpMethod
-import org.springframework.http.HttpStatus
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
 import org.springframework.security.web.SecurityFilterChain
-import org.springframework.security.web.authentication.HttpStatusEntryPoint
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
 import org.springframework.web.cors.CorsConfiguration
 import org.springframework.web.cors.CorsConfigurationSource
@@ -37,8 +35,11 @@ class SecurityConfig {
             .cors { it.configurationSource(corsConfigurationSource()) }
             .csrf { it.disable() }
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
-            // Sem token (ou token inválido) em rota protegida: responde 401
-            .exceptionHandling { it.authenticationEntryPoint(HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)) }
+            // Sem token (ou token inválido) em rota protegida: 401. Sem permissão: 403. Corpo {"erro"}.
+            .exceptionHandling {
+                it.authenticationEntryPoint(EntradaNaoAutenticada())
+                it.accessDeniedHandler(AcessoNegado())
+            }
             .addFilterBefore(JwtAuthFilter(jwtService), UsernamePasswordAuthenticationFilter::class.java)
             .authorizeHttpRequests { auth ->
                 // Página interna de erros do Spring. Liberada para que 404 e 500

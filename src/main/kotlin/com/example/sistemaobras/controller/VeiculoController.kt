@@ -1,8 +1,10 @@
 package com.example.sistemaobras.controller
 
+import jakarta.validation.Valid
 import com.example.sistemaobras.dto.VeiculoEmUsoResponse
 import com.example.sistemaobras.dto.VeiculoRequest
 import com.example.sistemaobras.dto.VeiculoResponse
+import com.example.sistemaobras.exception.StatusErroFixo
 import com.example.sistemaobras.service.VeiculoService
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
@@ -29,45 +31,33 @@ class VeiculoController(
     }
 
     @GetMapping("/{id}")
+    @StatusErroFixo(404)
     fun buscarPorId(@PathVariable id: String): ResponseEntity<VeiculoResponse> {
-        return try {
-            ResponseEntity.ok(veiculoService.buscarPorId(id))
-        } catch (e: RuntimeException) {
-            ResponseEntity.status(404).build()
-        }
+        return ResponseEntity.ok(veiculoService.buscarPorId(id))
     }
 
     @PostMapping
-    fun cadastrar(@RequestBody request: VeiculoRequest): ResponseEntity<Void> {
-        return try {
-            veiculoService.cadastrar(request)
-            ResponseEntity.status(201).build()
-        } catch (e: RuntimeException) {
-            ResponseEntity.status(400).build()
-        }
+    @StatusErroFixo(400)
+    fun cadastrar(@Valid @RequestBody request: VeiculoRequest): ResponseEntity<Void> {
+        veiculoService.cadastrar(request)
+        return ResponseEntity.status(201).build()
     }
 
     @PutMapping("/{id}")
+    @StatusErroFixo(400)
     fun atualizar(
         @PathVariable id: String,
-        @RequestBody request: VeiculoRequest
+        @Valid @RequestBody request: VeiculoRequest
     ): ResponseEntity<Void> {
-        return try {
-            veiculoService.atualizar(id, request)
-            ResponseEntity.ok().build()
-        } catch (e: RuntimeException) {
-            ResponseEntity.status(400).build()
-        }
+        veiculoService.atualizar(id, request)
+        return ResponseEntity.ok().build()
     }
 
     @DeleteMapping("/{id}")
+    @StatusErroFixo(400)
     fun inativar(@PathVariable id: String): ResponseEntity<Void> {
-        return try {
-            veiculoService.inativar(id)
-            ResponseEntity.ok().build()
-        } catch (e: RuntimeException) {
-            ResponseEntity.status(400).build()
-        }
+        veiculoService.inativar(id)
+        return ResponseEntity.ok().build()
     }
     @GetMapping("/comboios")
     fun listarComboios(): ResponseEntity<List<VeiculoResponse>> {

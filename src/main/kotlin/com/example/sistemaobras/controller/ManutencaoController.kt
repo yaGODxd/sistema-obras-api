@@ -1,6 +1,8 @@
 package com.example.sistemaobras.controller
 
+import jakarta.validation.Valid
 import com.example.sistemaobras.dto.*
+import com.example.sistemaobras.exception.StatusErroFixo
 import com.example.sistemaobras.service.ManutencaoService
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
@@ -12,12 +14,9 @@ class ManutencaoController(
 ) {
 
     @PostMapping
-    fun abrir(@RequestBody request: ManutencaoRequest): ResponseEntity<ManutencaoResponse> {
-        return try {
-            ResponseEntity.ok(manutencaoService.abrir(request))
-        } catch (e: RuntimeException) {
-            ResponseEntity.status(400).build()
-        }
+    @StatusErroFixo(400)
+    fun abrir(@Valid @RequestBody request: ManutencaoRequest): ResponseEntity<ManutencaoResponse> {
+        return ResponseEntity.ok(manutencaoService.abrir(request))
     }
 
     @GetMapping
@@ -31,12 +30,9 @@ class ManutencaoController(
     }
 
     @GetMapping("/{id}")
+    @StatusErroFixo(404)
     fun buscarPorId(@PathVariable id: String): ResponseEntity<ManutencaoResponse> {
-        return try {
-            ResponseEntity.ok(manutencaoService.buscarPorId(id))
-        } catch (e: RuntimeException) {
-            ResponseEntity.status(404).build()
-        }
+        return ResponseEntity.ok(manutencaoService.buscarPorId(id))
     }
 
     @GetMapping("/veiculo/{veiculoId}")
@@ -45,36 +41,27 @@ class ManutencaoController(
     }
 
     @PutMapping("/{id}/status")
+    @StatusErroFixo(400)
     fun atualizarStatus(
         @PathVariable id: String,
         @RequestBody request: AtualizarStatusRequest
     ): ResponseEntity<ManutencaoResponse> {
-        return try {
-            ResponseEntity.ok(manutencaoService.atualizarStatus(id, request))
-        } catch (e: RuntimeException) {
-            ResponseEntity.status(400).build()
-        }
+        return ResponseEntity.ok(manutencaoService.atualizarStatus(id, request))
     }
 
     @PostMapping("/{id}/pecas")
+    @StatusErroFixo(400)
     fun adicionarPeca(
         @PathVariable id: String,
-        @RequestBody request: PecaRequest
+        @Valid @RequestBody request: PecaRequest
     ): ResponseEntity<PecaResponse> {
-        return try {
-            ResponseEntity.ok(manutencaoService.adicionarPeca(id, request))
-        } catch (e: RuntimeException) {
-            ResponseEntity.status(400).build()
-        }
+        return ResponseEntity.ok(manutencaoService.adicionarPeca(id, request))
     }
 
     @DeleteMapping("/pecas/{pecaId}")
+    @StatusErroFixo(404)
     fun removerPeca(@PathVariable pecaId: String): ResponseEntity<Void> {
-        return try {
-            manutencaoService.removerPeca(pecaId)
-            ResponseEntity.noContent().build()
-        } catch (e: RuntimeException) {
-            ResponseEntity.status(404).build()
-        }
+        manutencaoService.removerPeca(pecaId)
+        return ResponseEntity.noContent().build()
     }
 }

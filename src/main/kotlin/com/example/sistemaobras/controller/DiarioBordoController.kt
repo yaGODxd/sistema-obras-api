@@ -1,9 +1,11 @@
 package com.example.sistemaobras.controller
 
+import jakarta.validation.Valid
 import com.example.sistemaobras.dto.AbrirDiarioRequest
 import com.example.sistemaobras.dto.DiarioResponse
 import com.example.sistemaobras.dto.DiarioResumoMensalResponse
 import com.example.sistemaobras.dto.FecharDiarioRequest
+import com.example.sistemaobras.exception.StatusErroFixo
 import com.example.sistemaobras.service.DiarioBordoService
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
@@ -15,25 +17,18 @@ class DiarioBordoController(
 ) {
 
     @PostMapping("/abrir")
-    fun abrirDiario(@RequestBody request: AbrirDiarioRequest): ResponseEntity<Any> {
-        return try {
-            ResponseEntity.ok(diarioService.abrirDiario(request))
-        } catch (e: RuntimeException) {
-            // Retorna a mensagem de erro no corpo pra facilitar debug no app
-            ResponseEntity.status(400).body(mapOf("erro" to (e.message ?: "Erro ao abrir diário")))
-        }
+    @StatusErroFixo(400)
+    fun abrirDiario(@Valid @RequestBody request: AbrirDiarioRequest): ResponseEntity<DiarioResponse> {
+        return ResponseEntity.ok(diarioService.abrirDiario(request))
     }
 
     @PostMapping("/fechar/{login}")
+    @StatusErroFixo(400)
     fun fecharDiario(
         @PathVariable login: String,
-        @RequestBody request: FecharDiarioRequest
-    ): ResponseEntity<Any> {
-        return try {
-            ResponseEntity.ok(diarioService.fecharDiario(login, request))
-        } catch (e: RuntimeException) {
-            ResponseEntity.status(400).body(mapOf("erro" to (e.message ?: "Erro ao fechar diário")))
-        }
+        @Valid @RequestBody request: FecharDiarioRequest
+    ): ResponseEntity<DiarioResponse> {
+        return ResponseEntity.ok(diarioService.fecharDiario(login, request))
     }
 
     @GetMapping("/aberto/{login}")

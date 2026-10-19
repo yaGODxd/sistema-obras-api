@@ -1,5 +1,7 @@
 package com.example.sistemaobras.service
 
+import com.example.sistemaobras.exception.ConflitoException
+import com.example.sistemaobras.exception.NaoEncontradoException
 import com.example.sistemaobras.dto.VeiculoEmUsoResponse
 import com.example.sistemaobras.dto.VeiculoRequest
 import com.example.sistemaobras.dto.VeiculoResponse
@@ -60,14 +62,27 @@ class VeiculoService(
 
     fun buscarPorId(id: String): VeiculoResponse {
         val veiculo = veiculoRepository.findById(UUID.fromString(id))
-            .orElseThrow { RuntimeException("Veículo não encontrado") }
+            .orElseThrow { NaoEncontradoException("Veículo não encontrado.") }
         return toResponse(veiculo)
     }
 
+    // Placa é opcional (máquinas não têm): texto vazio vira null.
+    private fun placaInformada(request: VeiculoRequest): String? = request.placa?.takeIf { it.isNotBlank() }
+
+    private fun conferirPlacaUnica(placa: String?, ignorarId: String?) {
+        if (placa == null) return
+        // Mesma normalização da consulta: só A-Z e 0-9.
+        val normalizada = placa.uppercase().filter { it in 'A'..'Z' || it in '0'..'9' }
+        if (normalizada.isEmpty()) return
+        if (veiculoRepository.contarPorPlaca(normalizada, ignorarId) > 0)
+            throw ConflitoException("Já existe um veículo com esta placa.")
+    }
+
     fun cadastrar(request: VeiculoRequest) {
+        conferirPlacaUnica(placaInformada(request), null)
         veiculoRepository.inserirVeiculo(
             tipoId = request.tipoId,
-            placa = request.placa,
+            placa = placaInformada(request),
             descricao = request.descricao,
             medidorAtual = request.medidorAtual,
             marca = request.marca?.uppercase(),
@@ -81,10 +96,11 @@ class VeiculoService(
     }
     fun atualizar(id: String, request: VeiculoRequest) {
         veiculoRepository.findById(UUID.fromString(id))
-            .orElseThrow { RuntimeException("Veículo não encontrado") }
+            .orElseThrow { NaoEncontradoException("Veículo não encontrado.") }
+        conferirPlacaUnica(placaInformada(request), id)
         veiculoRepository.atualizarVeiculo(
             id = id,
-            placa = request.placa,
+            placa = placaInformada(request),
             descricao = request.descricao,
             marca = request.marca?.uppercase(),
             modelo = request.modelo?.uppercase(),
@@ -98,7 +114,7 @@ class VeiculoService(
 
     fun inativar(id: String) {
         veiculoRepository.findById(UUID.fromString(id))
-            .orElseThrow { RuntimeException("Veículo não encontrado") }
+            .orElseThrow { NaoEncontradoException("Veículo não encontrado.") }
         veiculoRepository.inativarVeiculo(id)
     }
 

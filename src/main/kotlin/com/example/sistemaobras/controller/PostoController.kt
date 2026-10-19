@@ -1,8 +1,11 @@
 package com.example.sistemaobras.controller
 
+import jakarta.validation.Valid
 import com.example.sistemaobras.dto.PostoRequest
 import com.example.sistemaobras.dto.PostoResponse
 import com.example.sistemaobras.entity.Posto
+import com.example.sistemaobras.exception.NaoEncontradoException
+import com.example.sistemaobras.exception.StatusErroFixo
 import com.example.sistemaobras.repository.PostoRepository
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
@@ -17,7 +20,7 @@ class PostoController(private val postoRepository: PostoRepository) {
     }
 
     @PostMapping
-    fun criar(@RequestBody request: PostoRequest): ResponseEntity<PostoResponse> {
+    fun criar(@Valid @RequestBody request: PostoRequest): ResponseEntity<PostoResponse> {
         val posto = postoRepository.save(Posto(
             nome = request.nome.uppercase(),
             endereco = request.endereco,
@@ -27,16 +30,13 @@ class PostoController(private val postoRepository: PostoRepository) {
     }
 
     @PutMapping("/{id}")
-    fun atualizar(@PathVariable id: String, @RequestBody request: PostoRequest): ResponseEntity<PostoResponse> {
-        return try {
-            postoRepository.findById(java.util.UUID.fromString(id))
-                .orElseThrow { RuntimeException("Posto não encontrado") }
-            postoRepository.atualizar(id, request.nome.uppercase(), request.endereco, request.cidade?.uppercase())
-            val atualizado = postoRepository.findById(java.util.UUID.fromString(id)).orElseThrow()
-            ResponseEntity.ok(toResponse(atualizado))
-        } catch (e: RuntimeException) {
-            ResponseEntity.status(400).build()
-        }
+    @StatusErroFixo(400)
+    fun atualizar(@PathVariable id: String, @Valid @RequestBody request: PostoRequest): ResponseEntity<PostoResponse> {
+        postoRepository.findById(java.util.UUID.fromString(id))
+            .orElseThrow { NaoEncontradoException("Posto não encontrado.") }
+        postoRepository.atualizar(id, request.nome.uppercase(), request.endereco, request.cidade?.uppercase())
+        val atualizado = postoRepository.findById(java.util.UUID.fromString(id)).orElseThrow()
+        return ResponseEntity.ok(toResponse(atualizado))
     }
 
     @PutMapping("/{id}/ativo")

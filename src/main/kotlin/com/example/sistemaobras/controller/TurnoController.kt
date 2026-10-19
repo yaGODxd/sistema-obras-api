@@ -2,6 +2,7 @@ package com.example.sistemaobras.controller
 
 import com.example.sistemaobras.dto.TurnoRequest
 import com.example.sistemaobras.dto.TurnoResponse
+import com.example.sistemaobras.exception.StatusErroFixo
 import com.example.sistemaobras.service.TurnoService
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
@@ -13,21 +14,15 @@ class TurnoController(
 ) {
 
     @PostMapping("/abrir")
+    @StatusErroFixo(400)
     fun abrirTurno(@RequestBody request: TurnoRequest): ResponseEntity<TurnoResponse> {
-        return try {
-            ResponseEntity.ok(turnoService.abrirTurno(request.login))
-        } catch (e: RuntimeException) {
-            ResponseEntity.status(400).build()
-        }
+        return ResponseEntity.ok(turnoService.abrirTurno(request.login))
     }
 
     @PostMapping("/fechar")
+    @StatusErroFixo(400)
     fun fecharTurno(@RequestBody request: TurnoRequest): ResponseEntity<TurnoResponse> {
-        return try {
-            ResponseEntity.ok(turnoService.fecharTurno(request.login))
-        } catch (e: RuntimeException) {
-            ResponseEntity.status(400).build()
-        }
+        return ResponseEntity.ok(turnoService.fecharTurno(request.login))
     }
 
     @GetMapping("/status/{login}")

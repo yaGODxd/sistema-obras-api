@@ -1,5 +1,9 @@
 package com.example.sistemaobras.service
 
+import com.example.sistemaobras.exception.ConflitoException
+import com.example.sistemaobras.exception.NaoAutorizadoException
+import com.example.sistemaobras.exception.NaoEncontradoException
+import com.example.sistemaobras.exception.RegraNegocioException
 import com.example.sistemaobras.dto.*
 import com.example.sistemaobras.entity.Usuario
 import java.time.LocalDate
@@ -7,6 +11,7 @@ import java.util.UUID
 import com.example.sistemaobras.repository.SecretariaRepository
 import com.example.sistemaobras.repository.UsuarioRepository
 import com.example.sistemaobras.security.JwtService
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.stereotype.Service
 
@@ -15,7 +20,9 @@ class UsuarioService(
     private val usuarioRepository: UsuarioRepository,
     private val jwtService: JwtService,
     private val logService: LogService,
-    private val secretariaRepository: SecretariaRepository
+    private val secretariaRepository: SecretariaRepository,
+    // Desligado na fase de testes; ligar com APP_VALIDAR_CPF_DIGITOS=true.
+    @Value("\${app.validar-cpf-digitos:false}") private val validarCpfDigitos: Boolean = false
 ) {
     private val bcrypt = BCryptPasswordEncoder()
 
@@ -41,11 +48,12 @@ class UsuarioService(
     }
 
     fun login(request: LoginRequest): LoginResponse {
+        // Mesma mensagem para login inexistente e senha errada, e a senha é
+        // conferida antes de revelar que o usuário está inativo.
         val usuario = usuarioRepository.findByLogin(request.login)
-            ?: throw RuntimeException("Usuário não encontrado")
-
-        if (!usuario.ativo) throw RuntimeException("Usuário inativo")
-        if (!bcrypt.matches(request.senha, usuario.senhaHash)) throw RuntimeException("Senha incorreta")
+        if (usuario == null || !bcrypt.matches(request.senha, usuario.senhaHash))
+            throw NaoAutorizadoException("Login ou senha incorretos.")
+        if (!usuario.ativo) throw NaoAutorizadoException("Usuário inativo. Procure o gestor.")
 
         val token = jwtService.gerarToken(usuario.login, usuario.perfil.name)
 
@@ -61,7 +69,13 @@ class UsuarioService(
 
     fun criar(request: CriarUsuarioRequest): LoginResponse {
         if (usuarioRepository.findByLogin(request.login) != null)
-            throw RuntimeException("Login já existe")
+            throw ConflitoException("Já existe um usuário com este login.")
+
+        if (validarCpfDigitos && !ValidadorCpf.valido(request.cpf))
+            throw RegraNegocioException("CPF inválido.")
+        val cpfDigitos = ValidadorCpf.somenteDigitos(request.cpf)
+        if (cpfDigitos.isNotEmpty() && usuarioRepository.contarPorCpf(cpfDigitos) > 0)
+            throw ConflitoException("Já existe um usuário com este CPF.")
 
         usuarioRepository.inserirUsuario(
             nomeCompleto = request.nomeCompleto,
@@ -92,7 +106,7 @@ class UsuarioService(
 
     fun atualizarPerfil(login: String, request: AtualizarPerfilRequest): UsuarioResponse {
         usuarioRepository.findByLogin(login)
-            ?: throw RuntimeException("Usuário não encontrado")
+            ?: throw NaoEncontradoException("Usuário não encontrado.")
 
         if (request.fotoPerfil != null) usuarioRepository.atualizarFoto(login, request.fotoPerfil)
         if (request.nomeCompleto != null) {
@@ -110,7 +124,7 @@ class UsuarioService(
 
     fun atualizarUsuario(login: String, request: AtualizarUsuarioRequest): UsuarioResponse {
         usuarioRepository.findByLogin(login)
-            ?: throw RuntimeException("Usuário não encontrado")
+            ?: throw NaoEncontradoException("Usuário não encontrado.")
 
         usuarioRepository.atualizarUsuarioCompleto(
             login = login,
@@ -136,7 +150,7 @@ class UsuarioService(
 
     fun buscarPerfil(login: String): UsuarioResponse {
         val usuario = usuarioRepository.findByLogin(login)
-            ?: throw RuntimeException("Usuário não encontrado")
+            ?: throw NaoEncontradoException("Usuário não encontrado.")
         return toResponse(usuario)
     }
 
@@ -160,7 +174,7 @@ class UsuarioService(
 
     fun alterarAtivo(login: String, ativo: Boolean) {
         usuarioRepository.findByLogin(login)
-            ?: throw RuntimeException("Usuário não encontrado")
+            ?: throw NaoEncontradoException("Usuário não encontrado.")
         usuarioRepository.alterarAtivo(login, ativo)
 
         logService.registrar(

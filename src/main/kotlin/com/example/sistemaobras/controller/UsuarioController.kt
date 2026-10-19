@@ -5,6 +5,7 @@ import com.example.sistemaobras.dto.AtualizarUsuarioRequest
 import com.example.sistemaobras.dto.MotoristaOnlineResponse
 import com.example.sistemaobras.dto.ResumoSemanalResponse
 import com.example.sistemaobras.dto.UsuarioResponse
+import com.example.sistemaobras.exception.StatusErroFixo
 import com.example.sistemaobras.repository.UsuarioRepository
 import com.example.sistemaobras.service.UsuarioService
 import org.springframework.http.ResponseEntity
@@ -17,12 +18,9 @@ class UsuarioController(
     private val usuarioRepository: UsuarioRepository
 ) {
     @GetMapping("/{login}")
+    @StatusErroFixo(404)
     fun buscarPerfil(@PathVariable login: String): ResponseEntity<UsuarioResponse> {
-        return try {
-            ResponseEntity.ok(usuarioService.buscarPerfil(login))
-        } catch (e: RuntimeException) {
-            ResponseEntity.status(404).build()
-        }
+        return ResponseEntity.ok(usuarioService.buscarPerfil(login))
     }
 
     @GetMapping("/motoristas/online")
@@ -31,15 +29,12 @@ class UsuarioController(
     }
 
     @PutMapping("/{login}/perfil")
+    @StatusErroFixo(400)
     fun atualizarPerfil(
         @PathVariable login: String,
         @RequestBody request: AtualizarPerfilRequest
     ): ResponseEntity<UsuarioResponse> {
-        return try {
-            ResponseEntity.ok(usuarioService.atualizarPerfil(login, request))
-        } catch (e: RuntimeException) {
-            ResponseEntity.status(400).build()
-        }
+        return ResponseEntity.ok(usuarioService.atualizarPerfil(login, request))
     }
 
     @GetMapping
@@ -48,28 +43,22 @@ class UsuarioController(
     }
 
     @PutMapping("/{login}/ativo")
+    @StatusErroFixo(400)
     fun alterarAtivo(
         @PathVariable login: String,
         @RequestBody body: Map<String, Boolean>
     ): ResponseEntity<Void> {
-        return try {
-            usuarioService.alterarAtivo(login, body["ativo"] ?: true)
-            ResponseEntity.ok().build()
-        } catch (e: RuntimeException) {
-            ResponseEntity.status(400).build()
-        }
+        usuarioService.alterarAtivo(login, body["ativo"] ?: true)
+        return ResponseEntity.ok().build()
     }
 
     @PutMapping("/{login}")
+    @StatusErroFixo(400)
     fun atualizarUsuario(
         @PathVariable login: String,
         @RequestBody request: AtualizarUsuarioRequest
     ): ResponseEntity<UsuarioResponse> {
-        return try {
-            ResponseEntity.ok(usuarioService.atualizarUsuario(login, request))
-        } catch (e: RuntimeException) {
-            ResponseEntity.status(400).build()
-        }
+        return ResponseEntity.ok(usuarioService.atualizarUsuario(login, request))
     }
 
     @GetMapping("/{login}/resumo-semanal")

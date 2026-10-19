@@ -1,5 +1,6 @@
 package com.example.sistemaobras.service
 
+import com.example.sistemaobras.exception.RegraNegocioException
 import com.example.sistemaobras.dto.OcorrenciaDetalhadaResponse
 import com.example.sistemaobras.dto.OcorrenciaRequest
 import com.example.sistemaobras.dto.OcorrenciaResponse
@@ -23,7 +24,7 @@ class OcorrenciaService(
 
     fun registrar(request: OcorrenciaRequest): OcorrenciaResponse {
         val diario = diarioBordoRepository.findDiarioAberto(request.loginMotorista)
-            ?: throw RuntimeException("Diário aberto não encontrado para o motorista ${request.loginMotorista}")
+            ?: throw RegraNegocioException("Motorista não tem diário aberto")
 
         val registradoEm = if (request.registradoEm != null)
             java.time.Instant.ofEpochMilli(request.registradoEm)
