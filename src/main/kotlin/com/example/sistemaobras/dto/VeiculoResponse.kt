@@ -16,5 +16,6 @@ data class VeiculoResponse(
     val cor: String? = null,
     val renavam: String? = null,
     val chassi: String? = null,
-    val comboio: Boolean = false
+    val comboio: Boolean = false,
+    val tipoId: UUID? = null
 )

@@ -97,10 +97,13 @@ interface DiarioBordoRepository : JpaRepository<DiarioBordo, UUID> {
             d.destino,
             d.status,
             d.aberto_em,
-            d.fechado_em
+            d.fechado_em,
+            d.veiculo_id,
+            CAST(tv.medidor AS text) AS tipo_medidor
         FROM diarios_bordo d
         INNER JOIN usuarios u ON u.id = d.usuario_id
         INNER JOIN veiculos v ON v.id = d.veiculo_id
+        LEFT JOIN tipo_veiculo tv ON tv.id = v.tipo_id
         WHERE u.login = :login AND d.status = 'aberto'
         LIMIT 1
     """,
@@ -123,10 +126,13 @@ interface DiarioBordoRepository : JpaRepository<DiarioBordo, UUID> {
             d.destino,
             d.status,
             d.aberto_em,
-            d.fechado_em
+            d.fechado_em,
+            d.veiculo_id,
+            CAST(tv.medidor AS text) AS tipo_medidor
         FROM diarios_bordo d
         INNER JOIN usuarios u ON u.id = d.usuario_id
         INNER JOIN veiculos v ON v.id = d.veiculo_id
+        LEFT JOIN tipo_veiculo tv ON tv.id = v.tipo_id
         WHERE (:veiculoId IS NULL OR d.veiculo_id = CAST(:veiculoId AS uuid))
         AND (
             :mes IS NULL OR (
@@ -143,6 +149,42 @@ interface DiarioBordoRepository : JpaRepository<DiarioBordo, UUID> {
         @org.springframework.data.repository.query.Param("mes") mes: Int?,
         @org.springframework.data.repository.query.Param("ano") ano: Int?
     ): List<Array<Any>>
+
+    // Detalhe de um diário (GET /diarios/{id}). Índices 0-12 iguais aos da lista;
+    // 13 motivo_uso_id, 14 motivo_uso, 15 observacao_fechamento, 16 assinado_em, 17 login do motorista.
+    @Query(
+        value = """
+        SELECT
+            d.id,
+            v.descricao as veiculo_descricao,
+            v.placa as veiculo_placa,
+            u.nome_completo as motorista_nome,
+            d.medidor_inicial,
+            d.medidor_final,
+            d.medidor_percorrido,
+            d.destino,
+            d.status,
+            d.aberto_em,
+            d.fechado_em,
+            d.veiculo_id,
+            CAST(tv.medidor AS text) AS tipo_medidor,
+            d.motivo_uso_id,
+            mu.descricao AS motivo_uso,
+            d.observacao_fechamento,
+            d.assinado_em,
+            u.login AS motorista_login
+        FROM diarios_bordo d
+        INNER JOIN usuarios u ON u.id = d.usuario_id
+        INNER JOIN veiculos v ON v.id = d.veiculo_id
+        LEFT JOIN tipo_veiculo tv ON tv.id = v.tipo_id
+        LEFT JOIN motivos_uso mu ON mu.id = d.motivo_uso_id
+        WHERE d.id = CAST(:id AS uuid)
+    """,
+        nativeQuery = true
+    )
+    fun buscarDetalhe(
+        @org.springframework.data.repository.query.Param("id") id: String
+    ): List<Array<Any?>>
 
     @Query(
         value = """

@@ -82,6 +82,7 @@ Regra de deploy: o Dockerfile faz COPY build/libs/*.jar. Depois de mudar o códi
    - Recusar abrir diário se o motorista tem diário "fechado" sem assinar, ou se não tem PIN cadastrado. Hoje só o app impede.
 
 10. VeiculoResponse e edição
+- FEITO (Parte 4, 19/10, falta deploy): tipoId, tipoNome e tipoMedidor reais nas listas (tipos numa consulta só); tipoId opcional no PUT (continua ignorado), obrigatório no POST (400 "Campo 'tipoId' é obrigatório."). Conferir no front quem dependia de tipoNome vazio.
 - Incluir tipoId na resposta. Tornar tipoId opcional na edição (o UPDATE já o ignora).
 - OPCIONAL (Parte 4, decisão 19/10): rota para reativar veículo inativo (DELETE só inativa e não há volta pela API).
 - Status de veículo conhecidos: disponivel, em_uso, em_manutencao, inativo (DELETE só marca inativo).
@@ -101,6 +102,7 @@ Regra de deploy: o Dockerfile faz COPY build/libs/*.jar. Depois de mudar o códi
 - Futuro: Dockerfile multi-stage (compilar no Render) para não precisar versionar o jar.
 
 13. GET /diarios com veiculoId e tipoMedidor (pedido do front, 18/10)
+- FEITO (Parte 4, 19/10, falta deploy): veiculoId e tipoMedidor no DiarioResponse (lista, aberto, abrir, fechar); GET /diarios/{id} (reaproveita DiarioDetalheResponse da assinatura, + veiculoId, tipoMedidor, motivoUso); AbastecimentoResponse com comboio e veiculoAbastecidoId.
 - O DiarioResponse hoje tem: id, veiculoDescricao, veiculoPlaca, motoristaNome, medidorInicial, medidorFinal, medidorPercorrido, destino, status, abertoEm, fechadoEm. Não tem veiculoId nem tipoMedidor.
 - Sem eles, o front descobre o veículo pelo nome no Ranking e no Custo por Km (frágil se dois veículos tiverem descrição igual).
 - Fazer junto com o item 10 (mudanças de resposta). É só acrescentar campos, não quebra o app.
@@ -135,6 +137,7 @@ Regra de deploy: o Dockerfile faz COPY build/libs/*.jar. Depois de mudar o códi
 - Correção possível: ALTER TYPE status_veiculo ADD VALUE IF NOT EXISTS 'em_manutencao' (só banco) ou ajustar o código; log com o login real do gestor (agora que há JWT) ou usuário "sistema" válido; @Transactional nos fluxos de escrita com vários passos (manutenção, abastecimento, fechar diário); logar a exceção no controller em vez de engolir.
 
 17. Ruído e desempenho vistos nos logs do Render (18/10)
+- FEITO (Parte 4, 19/10, falta deploy): logs 1+N -> 2 consultas (fotos em lote); lista de manutenções 1+2N -> 3 consultas (peças e veículos em lote). Ainda com consulta por linha: ocorrências detalhadas (4-5 por linha) e abastecimentos detalhados (foto por linha).
 - O SQL do Hibernate está sendo impresso (show-sql ligado): enche o log e esconde os erros. Desligar quando terminar o diagnóstico (spring.jpa.show-sql=false).
 - FEITO (Parte 1, 19/10, falta deploy): show-sql e format_sql desligados por padrão; ligar com SPRING_JPA_SHOW_SQL=true. ddl-auto passou a ter padrão none.
 - Consultas repetidas: a tela de Logs consulta a foto do usuário uma vez por linha (findFotoByLogin dentro de toResponse); a lista de manutenções consulta peças e veículo uma vez por manutenção (toResponseSimples). Resolver com JOIN ou consulta em lote. Pesa no Render gratuito.
@@ -168,6 +171,7 @@ Regra de deploy: o Dockerfile faz COPY build/libs/*.jar. Depois de mudar o códi
 - Correção: ao concluir, só voltar para `disponivel` se NÃO existir outra manutenção do veículo com status diferente de concluida (e tratar o caso do veículo estar com diário aberto -> em_uso). Fazer junto com o item 18 (mesma função, mesma transação).
 
 20. Peça de manutenção sem edição (achado 19/10)
+- PROPOSTA (Parte 4, aguardando OK): PUT /manutencoes/pecas/{pecaId}, ver relatório da Parte 4.
 - Hoje só existem POST /manutencoes/{id}/pecas e DELETE /manutencoes/pecas/{pecaId}; não há como corrigir uma peça sem apagar e lançar de novo.
 - Avaliar na Parte 4, como item opcional: PUT /manutencoes/pecas/{pecaId}.
 

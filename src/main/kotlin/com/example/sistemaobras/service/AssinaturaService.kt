@@ -250,6 +250,7 @@ class AssinaturaService(
         status = r[12]?.toString() ?: "",
         abertoEm = dataHora(r[13]),
         fechadoEm = dataHora(r[14]),
-        assinadoEm = dataHora(r[15])
+        assinadoEm = dataHora(r[15]),
+        veiculoId = r[5]?.let { UUID.fromString(it.toString()) }
     )
 }

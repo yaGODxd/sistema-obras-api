@@ -148,6 +148,10 @@ interface VeiculoRepository : JpaRepository<Veiculo, UUID> {
         @org.springframework.data.repository.query.Param("veiculoId") veiculoId: String
     ): List<Array<Any>>
 
+    // Tipos de veículo (id, nome, medidor) numa consulta só, para montar as listas.
+    @Query(value = "SELECT CAST(id AS text), nome, CAST(medidor AS text) FROM tipo_veiculo", nativeQuery = true)
+    fun listarTipos(): List<Array<Any?>>
+
     // Placa comparada sem traço/espaço e em maiúsculas. Veículo inativo não conta
     // (não há como reativar pela API). ignorarId: o próprio veículo na edição.
     @Query(

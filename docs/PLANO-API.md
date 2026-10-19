@@ -84,7 +84,7 @@ Depois PARE e espere "pode começar a parte 1".
   - NÃO recusar valorTotal = 0 (comboio pode não ter valor), custo de mão de obra = 0, nem valor unitário de peça = 0 (garantia).
   - Fechar diário: recusar medidor final menor que o inicial com {"erro": "O medidor final não pode ser menor que o medidor inicial."} (vale para as duas rotas de fechar). Troca de hodômetro fica como limitação documentada; exceção só se a Secretaria pedir.
 
-## PARTE 4 - Respostas mais completas e consultas mais leves (itens 10, 13 e resto do 17)
+## PARTE 4 - Respostas mais completas e consultas mais leves (itens 10, 13 e resto do 17) - FEITA em 19/10 (falta deploy; opcionais aguardam OK)
 - VeiculoResponse: tipoId, tipoNome e tipoMedidor REAIS nas listas (hoje vão vazios; confira no front quem depende disso); tipoId opcional na edição.
 - DiarioResponse: acrescentar veiculoId e tipoMedidor. Nova rota GET /diarios/{id} (detalhe) com motivoUso, observacaoFechamento, assinadoEm, veiculoId e tipoMedidor.
 - AbastecimentoResponse: informar se foi abastecimento no comboio.

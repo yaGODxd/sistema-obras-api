@@ -37,7 +37,11 @@ data class DiarioDetalheResponse(
     val status: String,
     val abertoEm: LocalDateTime?,
     val fechadoEm: LocalDateTime?,
-    val assinadoEm: LocalDateTime?
+    val assinadoEm: LocalDateTime?,
+    // Parte 4: preenchidos no GET /diarios/{id}; nas rotas de assinatura só veiculoId.
+    val veiculoId: UUID? = null,
+    val tipoMedidor: String? = null,
+    val motivoUso: String? = null
 )
 
 data class VerificacaoDiarioResponse(

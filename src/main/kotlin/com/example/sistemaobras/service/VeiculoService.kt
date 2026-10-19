@@ -2,6 +2,7 @@ package com.example.sistemaobras.service
 
 import com.example.sistemaobras.exception.ConflitoException
 import com.example.sistemaobras.exception.NaoEncontradoException
+import com.example.sistemaobras.exception.RegraNegocioException
 import com.example.sistemaobras.dto.VeiculoEmUsoResponse
 import com.example.sistemaobras.dto.VeiculoRequest
 import com.example.sistemaobras.dto.VeiculoResponse
@@ -15,11 +16,21 @@ class VeiculoService(
     private val veiculoRepository: VeiculoRepository
 ) {
 
-    private fun toResponse(v: com.example.sistemaobras.entity.Veiculo): VeiculoResponse {
+    private data class TipoVeiculo(val nome: String, val medidor: String)
+
+    // Uma consulta para todos os tipos (em vez de uma por veículo).
+    private fun tiposPorId(): Map<String, TipoVeiculo> =
+        veiculoRepository.listarTipos().associate { row ->
+            row[0].toString() to TipoVeiculo(row[1]?.toString() ?: "", row[2]?.toString() ?: "")
+        }
+
+    private fun toResponse(v: com.example.sistemaobras.entity.Veiculo, tipos: Map<String, TipoVeiculo>): VeiculoResponse {
+        val tipo = tipos[v.tipoId.toString()]
         return VeiculoResponse(
             id = v.id,
-            tipoNome = "",
-            tipoMedidor = "",
+            tipoId = v.tipoId,
+            tipoNome = tipo?.nome ?: "",
+            tipoMedidor = tipo?.medidor ?: "",
             placa = v.placa,
             descricao = v.descricao,
             status = v.status,
@@ -35,11 +46,13 @@ class VeiculoService(
     }
 
     fun listarTodos(): List<VeiculoResponse> {
-        return veiculoRepository.findAllAtivos().map { toResponse(it) }
+        val tipos = tiposPorId()
+        return veiculoRepository.findAllAtivos().map { toResponse(it, tipos) }
     }
 
     fun listarDisponiveis(): List<VeiculoResponse> {
-        return veiculoRepository.findDisponiveis().map { toResponse(it) }
+        val tipos = tiposPorId()
+        return veiculoRepository.findDisponiveis().map { toResponse(it, tipos) }
     }
 
     fun listarEmUso(): List<VeiculoEmUsoResponse> {
@@ -63,7 +76,7 @@ class VeiculoService(
     fun buscarPorId(id: String): VeiculoResponse {
         val veiculo = veiculoRepository.findById(UUID.fromString(id))
             .orElseThrow { NaoEncontradoException("Veículo não encontrado.") }
-        return toResponse(veiculo)
+        return toResponse(veiculo, tiposPorId())
     }
 
     // Placa é opcional (máquinas não têm): texto vazio vira null.
@@ -79,9 +92,11 @@ class VeiculoService(
     }
 
     fun cadastrar(request: VeiculoRequest) {
+        val tipoId = request.tipoId?.takeIf { it.isNotBlank() }
+            ?: throw RegraNegocioException("Campo 'tipoId' é obrigatório.")
         conferirPlacaUnica(placaInformada(request), null)
         veiculoRepository.inserirVeiculo(
-            tipoId = request.tipoId,
+            tipoId = tipoId,
             placa = placaInformada(request),
             descricao = request.descricao,
             medidorAtual = request.medidorAtual,
@@ -119,7 +134,8 @@ class VeiculoService(
     }
 
     fun listarComboios(): List<VeiculoResponse> {
-        return veiculoRepository.findComboios().map { toResponse(it) }
+        val tipos = tiposPorId()
+        return veiculoRepository.findComboios().map { toResponse(it, tipos) }
     }
 
     fun buscarMotoristas(id: String): Map<String, Any?> {

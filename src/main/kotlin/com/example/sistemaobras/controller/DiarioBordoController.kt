@@ -2,6 +2,7 @@ package com.example.sistemaobras.controller
 
 import jakarta.validation.Valid
 import com.example.sistemaobras.dto.AbrirDiarioRequest
+import com.example.sistemaobras.dto.DiarioDetalheResponse
 import com.example.sistemaobras.dto.DiarioResponse
 import com.example.sistemaobras.dto.DiarioResumoMensalResponse
 import com.example.sistemaobras.dto.FecharDiarioRequest
@@ -45,6 +46,12 @@ class DiarioBordoController(
         @RequestParam(required = false) ano: Int?
     ): ResponseEntity<List<DiarioResponse>> {
         return ResponseEntity.ok(diarioService.listarDiarios(veiculoId, mes, ano))
+    }
+
+    // Detalhe de um diário (modal do front). Rota nova: 400 id inválido, 404 não encontrado.
+    @GetMapping("/{id}")
+    fun buscarDetalhe(@PathVariable id: String): ResponseEntity<DiarioDetalheResponse> {
+        return ResponseEntity.ok(diarioService.buscarDetalhe(id))
     }
 
     @GetMapping("/resumo-mensal")

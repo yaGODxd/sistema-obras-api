@@ -8,4 +8,7 @@ import java.util.UUID
 @Repository
 interface ManutencaoPecaRepository : JpaRepository<ManutencaoPeca, UUID> {
     fun findByManutencaoId(manutencaoId: UUID): List<ManutencaoPeca>
+
+    // Peças de várias manutenções numa consulta só (lista de manutenções).
+    fun findByManutencaoIdIn(manutencaoIds: Collection<UUID>): List<ManutencaoPeca>
 }

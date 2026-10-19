@@ -118,16 +118,27 @@ class ManutencaoService(
     }
 
     fun listarTodas(): List<ManutencaoResponse> {
-        return manutencaoRepository.findAll().sortedByDescending { it.abertaEm }.map { toResponseSimples(it) }
+        return emLote(manutencaoRepository.findAll().sortedByDescending { it.abertaEm })
     }
 
     fun listarAbertas(): List<ManutencaoResponse> {
-        return manutencaoRepository.findAbertas().map { toResponseSimples(it) }
+        return emLote(manutencaoRepository.findAbertas())
     }
 
     fun listarPorVeiculo(veiculoId: String): List<ManutencaoResponse> {
-        return manutencaoRepository.findByVeiculoId(UUID.fromString(veiculoId))
-            .sortedByDescending { it.abertaEm }.map { toResponseSimples(it) }
+        return emLote(manutencaoRepository.findByVeiculoId(UUID.fromString(veiculoId)).sortedByDescending { it.abertaEm })
+    }
+
+    // Peças e veículos de todas as manutenções da lista em 2 consultas
+    // (antes eram 2 por manutenção).
+    private fun emLote(manutencoes: List<Manutencao>): List<ManutencaoResponse> {
+        if (manutencoes.isEmpty()) return emptyList()
+        val pecas = manutencaoPecaRepository.findByManutencaoIdIn(manutencoes.mapNotNull { it.id }).groupBy { it.manutencaoId }
+        val veiculos = veiculoRepository.findAllById(manutencoes.mapNotNull { it.veiculoId }.distinct()).associateBy { it.id }
+        return manutencoes.map { m ->
+            val veiculo = veiculos[m.veiculoId]
+            toResponse(m, pecas[m.id] ?: emptyList(), veiculo?.descricao ?: "", veiculo?.placa)
+        }
     }
 
     fun buscarPorId(id: String): ManutencaoResponse {
@@ -152,12 +163,6 @@ class ManutencaoService(
 
     fun removerPeca(pecaId: String) {
         manutencaoPecaRepository.deleteById(UUID.fromString(pecaId))
-    }
-
-    private fun toResponseSimples(m: Manutencao): ManutencaoResponse {
-        val pecas = manutencaoPecaRepository.findByManutencaoId(m.id!!)
-        val veiculo = veiculoRepository.findById(m.veiculoId!!).orElseThrow()
-        return toResponse(m, pecas, veiculo.descricao, veiculo.placa)
     }
 
     private fun toResponse(

@@ -14,5 +14,8 @@ data class DiarioResponse(
     val destino: String?,
     val status: String,
     val abertoEm: LocalDateTime?,
-    val fechadoEm: LocalDateTime?
+    val fechadoEm: LocalDateTime?,
+    val veiculoId: UUID? = null,
+    // Tipo de medidor do veículo (vem de tipo_veiculo.medidor).
+    val tipoMedidor: String? = null
 )

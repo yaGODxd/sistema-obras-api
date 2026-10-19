@@ -5,8 +5,8 @@ import jakarta.validation.constraints.PositiveOrZero
 import jakarta.validation.constraints.Size
 
 data class VeiculoRequest(
-    @field:NotBlank(message = MensagensValidacao.OBRIGATORIO)
-    val tipoId: String,
+    // Obrigatório no cadastro (conferido no VeiculoService); na edição é opcional e ignorado.
+    val tipoId: String? = null,
     @field:Size(max = 255, message = MensagensValidacao.TAMANHO)
     val placa: String?,
     @field:NotBlank(message = MensagensValidacao.OBRIGATORIO)

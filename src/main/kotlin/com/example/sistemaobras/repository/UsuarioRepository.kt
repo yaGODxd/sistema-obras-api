@@ -124,6 +124,15 @@ interface UsuarioRepository : JpaRepository<Usuario, UUID> {
         @org.springframework.data.repository.query.Param("login") login: String
     ): String?
 
+    // Fotos de vários usuários numa consulta só (tela de logs): [login, foto_perfil].
+    @Query(
+        value = "SELECT login, foto_perfil FROM usuarios WHERE login IN (:logins)",
+        nativeQuery = true
+    )
+    fun findFotosByLogins(
+        @org.springframework.data.repository.query.Param("logins") logins: Collection<String>
+    ): List<Array<Any?>>
+
     @Query(
         value = """
         SELECT 

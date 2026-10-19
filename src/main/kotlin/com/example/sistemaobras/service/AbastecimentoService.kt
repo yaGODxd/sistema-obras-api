@@ -65,7 +65,9 @@ class AbastecimentoService(
             litros = request.litros,
             valorTotal = request.valorTotal,
             posto = request.posto,
-            registradoEm = registradoEm
+            registradoEm = registradoEm,
+            comboio = !request.veiculoAbastecidoId.isNullOrEmpty(),
+            veiculoAbastecidoId = request.veiculoAbastecidoId?.takeIf { it.isNotEmpty() }?.let { UUID.fromString(it) }
         )
     }
 
@@ -77,7 +79,9 @@ class AbastecimentoService(
                 litros = a.litros.toDouble(),
                 valorTotal = a.valorTotal.toDouble(),
                 posto = a.posto,
-                registradoEm = a.registradoEm
+                registradoEm = a.registradoEm,
+                comboio = a.veiculoAbastecidoId != null,
+                veiculoAbastecidoId = a.veiculoAbastecidoId
             )
         }
     }
@@ -90,7 +94,9 @@ class AbastecimentoService(
                 litros = a.litros.toDouble(),
                 valorTotal = a.valorTotal.toDouble(),
                 posto = a.posto,
-                registradoEm = a.registradoEm
+                registradoEm = a.registradoEm,
+                comboio = a.veiculoAbastecidoId != null,
+                veiculoAbastecidoId = a.veiculoAbastecidoId
             )
         }
     }

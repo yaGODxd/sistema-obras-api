@@ -66,9 +66,7 @@ class LogService(
     }
 
     fun listarTodos(): List<LogResponse> {
-        return logRepository.findAll()
-            .sortedByDescending { it.criadoEm }
-            .map { toResponse(it) }
+        return comFotos(logRepository.findAll().sortedByDescending { it.criadoEm })
     }
 
     fun filtrar(
@@ -79,17 +77,26 @@ class LogService(
     ): List<LogResponse> {
         val inicioDate = inicio?.let { LocalDateTime.parse(it + "T00:00:00") }
         val fimDate = fim?.let { LocalDateTime.parse(it + "T23:59:59") }
-        return logRepository.filtrar(login, acao, inicioDate, fimDate)
-            .map { toResponse(it) }
+        return comFotos(logRepository.filtrar(login, acao, inicioDate, fimDate))
     }
 
-    private fun toResponse(l: Log) = LogResponse(
+    // As fotos dos autores vêm numa consulta só (antes era uma por linha de log).
+    private fun comFotos(logs: List<Log>): List<LogResponse> {
+        val logins = logs.map { it.usuarioLogin }.distinct()
+        val fotos = if (logins.isEmpty()) emptyMap() else try {
+            usuarioRepository.findFotosByLogins(logins).associate { it[0].toString() to it[1]?.toString() }
+        } catch (e: Exception) {
+            log.warn("Não foi possível carregar as fotos dos logs: {}", e.message)
+            emptyMap()
+        }
+        return logs.map { toResponse(it, fotos[it.usuarioLogin]) }
+    }
+
+    private fun toResponse(l: Log, foto: String?) = LogResponse(
         id = l.id,
         usuarioLogin = l.usuarioLogin,
         usuarioNome = l.usuarioNome,
-        usuarioFoto = try {
-            usuarioRepository.findFotoByLogin(l.usuarioLogin)
-        } catch (e: Exception) { null },
+        usuarioFoto = foto,
         acao = l.acao,
         descricao = l.descricao,
         ip = l.ip,

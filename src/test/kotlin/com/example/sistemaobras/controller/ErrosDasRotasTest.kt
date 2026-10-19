@@ -320,6 +320,32 @@ class ErrosDasRotasTest {
         Mockito.verify(ocorrenciaService).listarTodas("aberta")
     }
 
+    // ---------- Parte 4 ----------
+
+    @Test
+    fun `detalhe do diario responde 400 e 404 nos erros`() {
+        given(diarioBordoService.buscarDetalhe("abc")).willThrow(RegraNegocioException("Identificador inválido."))
+        mockMvc.perform(get("/diarios/abc"))
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.erro").value("Identificador inválido."))
+        given(diarioBordoService.buscarDetalhe(uuid)).willThrow(NaoEncontradoException("Diário não encontrado."))
+        mockMvc.perform(get("/diarios/$uuid"))
+            .andExpect(status().isNotFound)
+            .andExpect(jsonPath("$.erro").value("Diário não encontrado."))
+    }
+
+    @Test
+    fun `rotas fixas de diario nao sao confundidas com o detalhe`() {
+        mockMvc.perform(get("/diarios/resumo-mensal")).andExpect(status().isOk)
+        Mockito.verify(diarioBordoService).listarResumoMensal(null, null, null)
+    }
+
+    @Test
+    fun `edicao de veiculo sem tipoId e aceita`() {
+        json(put("/veiculos/$uuid"), """{"descricao":"Caminhão"}""")
+            .andExpect(status().isOk)
+    }
+
     @Test
     fun `sucesso continua com o mesmo status`() {
         json(post("/veiculos"), """{"tipoId":"$uuid","descricao":"Caminhão"}""")

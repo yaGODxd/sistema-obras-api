@@ -2,6 +2,8 @@ package com.example.sistemaobras.service
 
 import com.example.sistemaobras.exception.RegraNegocioException
 import com.example.sistemaobras.dto.AbrirDiarioRequest
+import com.example.sistemaobras.dto.DiarioDetalheResponse
+import com.example.sistemaobras.exception.NaoEncontradoException
 import com.example.sistemaobras.dto.DiarioResponse
 import com.example.sistemaobras.dto.DiarioResumoMensalResponse
 import com.example.sistemaobras.dto.FecharDiarioRequest
@@ -65,7 +67,9 @@ class DiarioBordoService(
             destino = diario.destino,
             status = diario.status,
             abertoEm = diario.abertoEm,
-            fechadoEm = null
+            fechadoEm = null,
+            veiculoId = diario.veiculoId,
+            tipoMedidor = tipoMedidor(diario.veiculoId)
         )
     }
 
@@ -107,7 +111,9 @@ class DiarioBordoService(
             destino = diario.destino,
             status = "fechado",
             abertoEm = diario.abertoEm,
-            fechadoEm = java.time.LocalDateTime.now(java.time.ZoneOffset.UTC)
+            fechadoEm = java.time.LocalDateTime.now(java.time.ZoneOffset.UTC),
+            veiculoId = diario.veiculoId,
+            tipoMedidor = tipoMedidor(diario.veiculoId)
         )
     }
 
@@ -115,24 +121,7 @@ class DiarioBordoService(
         return try {
             val rows = diarioRepository.findDiarioAbertoDetalhado(login)
             if (rows.isEmpty()) return null
-            val row = rows[0]
-            DiarioResponse(
-                id = java.util.UUID.fromString(row[0].toString()),
-                veiculoDescricao = row[1]?.toString() ?: "",
-                veiculoPlaca = row[2]?.toString(),
-                motoristaNome = row[3]?.toString() ?: "",
-                medidorInicial = row[4].toString().toDouble(),
-                medidorFinal = row[5]?.toString()?.toDoubleOrNull(),
-                medidorPercorrido = row[6]?.toString()?.toDoubleOrNull(),
-                destino = row[7]?.toString(),
-                status = row[8]?.toString() ?: "",
-                abertoEm = if (row[9] != null)
-                    java.time.LocalDateTime.parse(row[9].toString().replace(" ", "T"))
-                else null,
-                fechadoEm = if (row[10] != null)
-                    java.time.LocalDateTime.parse(row[10].toString().replace(" ", "T"))
-                else null
-            )
+            linhaParaDiario(rows[0])
         } catch (e: Exception) {
             println("ERRO buscarDiarioAberto: ${e.message}")
             null
@@ -140,25 +129,65 @@ class DiarioBordoService(
     }
 
     fun listarDiarios(veiculoId: String?, mes: Int?, ano: Int?): List<DiarioResponse> {
-        return diarioRepository.findDiariosPorFiltro(veiculoId, mes, ano).map { row ->
-            DiarioResponse(
-                id = java.util.UUID.fromString(row[0].toString()),
-                veiculoDescricao = row[1]?.toString() ?: "",
-                veiculoPlaca = row[2]?.toString(),
-                motoristaNome = row[3]?.toString() ?: "",
-                medidorInicial = row[4].toString().toDouble(),
-                medidorFinal = row[5]?.toString()?.toDoubleOrNull(),
-                medidorPercorrido = row[6]?.toString()?.toDoubleOrNull(),
-                destino = row[7]?.toString(),
-                status = row[8]?.toString() ?: "",
-                abertoEm = if (row[9] != null)
-                    java.time.LocalDateTime.parse(row[9].toString().replace(" ", "T"))
-                else null,
-                fechadoEm = if (row[10] != null)
-                    java.time.LocalDateTime.parse(row[10].toString().replace(" ", "T"))
-                else null
-            )
+        return diarioRepository.findDiariosPorFiltro(veiculoId, mes, ano).map { linhaParaDiario(it) }
+    }
+
+    // GET /diarios/{id}. Rota nova: id inválido -> 400, não encontrado -> 404.
+    fun buscarDetalhe(id: String): DiarioDetalheResponse {
+        try {
+            java.util.UUID.fromString(id)
+        } catch (e: IllegalArgumentException) {
+            throw RegraNegocioException("Identificador inválido.")
         }
+        val r = diarioRepository.buscarDetalhe(id).firstOrNull()
+            ?: throw NaoEncontradoException("Diário não encontrado.")
+        val base = linhaParaDiario(r)
+        return DiarioDetalheResponse(
+            id = base.id,
+            veiculoDescricao = base.veiculoDescricao,
+            veiculoPlaca = base.veiculoPlaca,
+            motoristaLogin = r[17]?.toString(),
+            motoristaNome = base.motoristaNome,
+            medidorInicial = base.medidorInicial,
+            medidorFinal = base.medidorFinal,
+            medidorPercorrido = base.medidorPercorrido,
+            destino = base.destino,
+            motivoUsoId = r[13]?.toString(),
+            observacaoFechamento = r[15]?.toString(),
+            status = base.status,
+            abertoEm = base.abertoEm,
+            fechadoEm = base.fechadoEm,
+            assinadoEm = dataHora(r[16]),
+            veiculoId = base.veiculoId,
+            tipoMedidor = base.tipoMedidor,
+            motivoUso = r[14]?.toString()
+        )
+    }
+
+    // Linha das consultas de diário (índices 0-12, ver DiarioBordoRepository).
+    private fun linhaParaDiario(row: Array<out Any?>) = DiarioResponse(
+        id = java.util.UUID.fromString(row[0].toString()),
+        veiculoDescricao = row[1]?.toString() ?: "",
+        veiculoPlaca = row[2]?.toString(),
+        motoristaNome = row[3]?.toString() ?: "",
+        medidorInicial = row[4].toString().toDouble(),
+        medidorFinal = row[5]?.toString()?.toDoubleOrNull(),
+        medidorPercorrido = row[6]?.toString()?.toDoubleOrNull(),
+        destino = row[7]?.toString(),
+        status = row[8]?.toString() ?: "",
+        abertoEm = dataHora(row[9]),
+        fechadoEm = dataHora(row[10]),
+        veiculoId = row[11]?.let { java.util.UUID.fromString(it.toString()) },
+        tipoMedidor = row[12]?.toString()
+    )
+
+    private fun dataHora(x: Any?): java.time.LocalDateTime? =
+        x?.let { java.time.LocalDateTime.parse(it.toString().replace(" ", "T")) }
+
+    // Tipo de medidor do veículo, para as respostas de abrir e fechar diário.
+    private fun tipoMedidor(veiculoId: java.util.UUID?): String? {
+        val tipoId = veiculoId?.let { veiculoRepository.findById(it).orElse(null) }?.tipoId ?: return null
+        return veiculoRepository.listarTipos().firstOrNull { it[0].toString() == tipoId.toString() }?.get(2)?.toString()
     }
 
     fun listarResumoMensal(veiculoId: String?, mes: Int?, ano: Int?): List<DiarioResumoMensalResponse> {
