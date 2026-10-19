@@ -57,7 +57,7 @@ Regra de deploy: o Dockerfile faz COPY build/libs/*.jar. Depois de mudar o códi
    - FEITO (Parte 2, 19/10, falta deploy): Bean Validation nos DTOs de entrada (obrigatórios em branco, valores negativos, perfil gestor|motorista); API confere login, CPF (só dígitos) e placa (sem traço, ignora vazia e inativo) antes de gravar; validação de dígitos do CPF pronta e DESLIGADA (APP_VALIDAR_CPF_DIGITOS=true liga); placa vazia passa a ser gravada como null. Índices únicos só como sugestão comentada em docs/migracoes.sql.
    - FEITO (19/10, com o resultado do information_schema): limites @Size nos DTOs iguais às colunas (quase todas varchar(255); senha até 72 por causa do BCrypt). LogService corta textos do log em 255 (a descrição da ocorrência podia estourar logs.descricao DEPOIS de gravar a ocorrência).
    - FEITO (Parte 3, etapa B, 19/10, falta deploy): litros > 0, quantidade de peça >= 1, medidor final >= inicial; valor/custo/valor unitário zero aceitos.
-   - DECISÕES 19/10 (para a Parte 3, etapa B): recusar litros = 0 e quantidade de peça < 1; aceitar valorTotal = 0, custo de mão de obra = 0 e valor unitário = 0 (garantia); recusar medidor final menor que o inicial ({"erro": "O medidor final não pode ser menor que o medidor inicial."}); troca de hodômetro = limitação documentada. Status de manutenção validado na Parte 3 (aberta, em_andamento, concluida). Placa de veículo inativo continua liberada para novo cadastro.
+   - DECISÕES 19/10 (para a Parte 3, etapa B): recusar litros = 0 e quantidade de peça < 1; aceitar valorTotal = 0, custo de mão de obra = 0 e valor unitário = 0 (garantia); recusar medidor final menor que o inicial ({"erro": "O medidor final não pode ser menor que o medidor inicial."}); troca de hodômetro = limitação documentada. Status de manutenção validado na Parte 3 (aberta, em_andamento, concluida). Placa de veículo inativo: decisão SUBSTITUÍDA em 19/10 (inativo segura a placa; ver item 21).
    - ACHADO 19/10 (decidir): usuarios.foto_perfil é varchar(255), mas a foto é base64 (muito maior). A API NÃO limita a foto (decisão de não reduzir foto). Diagnóstico e ALTER sugerido (comentados) no bloco 5 de docs/migracoes.sql.
 
 4. CORS
@@ -115,6 +115,7 @@ Regra de deploy: o Dockerfile faz COPY build/libs/*.jar. Depois de mudar o códi
 - Os horários de abastecimento e ocorrência enviados pelo app com registradoEm ficam em horário de Brasília (item 1): no modal aparecem 3 h atrasados até corrigirmos a API.
 
 14. Fotos de comprovação (pedido do app, 18/10)
+- PONTO ABERTO (19/10, coordenador): a tabela fotos (diario_id, ocorrencia_id, tipo, caminho_arquivo, tirada_em) guarda CAMINHO de arquivo, que não serve na Render (o disco é apagado a cada deploy). Decidir: foto no banco (base64/bytea) ou armazenamento externo. Nada a fazer agora.
 - Foto do hodômetro ao fechar o diário (FecharDiarioRequest hoje: medidorFinal e observacaoFechamento).
 - Foto do cupom fiscal no abastecimento em posto; foto da bomba quando o abastecimento é no comboio (AbastecimentoRequest hoje não tem foto).
 - Padrão já existente: Manutencao.fotoNotaFiscal (TEXT base64). Mesmo padrão: colunas novas (ex.: diarios_bordo.foto_hodometro, abastecimentos.foto_comprovante) + campo opcional nos DTOs.
@@ -148,6 +149,7 @@ Regra de deploy: o Dockerfile faz COPY build/libs/*.jar. Depois de mudar o códi
 - Consultas repetidas: a tela de Logs consulta a foto do usuário uma vez por linha (findFotoByLogin dentro de toResponse); a lista de manutenções consulta peças e veículo uma vez por manutenção (toResponseSimples). Resolver com JOIN ou consulta em lote. Pesa no Render gratuito.
 
 18. Status nas ocorrências + conclusão automática pela manutenção (pedido do Yago, 19/10)
+- VOCABULÁRIO CORRIGIDO (19/10): status da ocorrência = pendente/em_andamento/resolvida ("descartada" saiu). Ver item 21.
 - FEITO (Parte 3, 19/10, falta SQL + deploy): colunas status/resolvida_em (SQL antes do deploy em docs/migracoes.sql; backfill comentado, aguardando autorização); regras a-d e g; PUT /ocorrencias/{id}/status (aceita também "descartada"); status, resolvidaEm e manutencoes (id/status) nas respostas; filtro GET /ocorrencias?status=. Front e app: mostrar o status (depois do deploy).
 - Situação hoje (lendo o código): a tabela `ocorrencias` NÃO tem status (colunas: id, diario_id, tipo, descricao, latitude, longitude, registrado_em). O vínculo com manutenção JÁ existe: `manutencoes.ocorrencia_id` (Manutencao.ocorrenciaId, ManutencaoRequest.ocorrenciaId opcional, ManutencaoResponse.ocorrenciaId, e ManutencaoRepository.findByOcorrenciaId já existe). Só falta o lado da ocorrência.
 - Banco (migração idempotente, guardar em docs/migracoes.sql): `ALTER TABLE ocorrencias ADD COLUMN IF NOT EXISTS status varchar(20) NOT NULL DEFAULT 'aberta';` e, se quiser mostrar quando foi resolvida, `ALTER TABLE ocorrencias ADD COLUMN IF NOT EXISTS resolvida_em timestamp;`. Usar varchar e NÃO enum do Postgres (a lição do status_veiculo: enum sem o valor faz o UPDATE falhar).
@@ -182,14 +184,22 @@ Regra de deploy: o Dockerfile faz COPY build/libs/*.jar. Depois de mudar o códi
 - Avaliar na Parte 4, como item opcional: PUT /manutencoes/pecas/{pecaId}.
 
 21. Achados das consultas C1-C6 (19/10, Parte 6B)
+- RESOLVIDO (19/10, coordenador): vocabulário da ocorrência = pendente/em_andamento/resolvida (o do banco). Código e testes trocados; SQL no bloco "Ocorrências: vocabulário do banco" (normalização, backfill, CHECK). Correção 'aberta'/'concluida' RECUSADA.
 - Ocorrências: a coluna ocorrencias.status JÁ EXISTIA (varchar com default 'pendente'::status_ocorrencia; enum status_ocorrencia = pendente, em_andamento, resolvida). O ALTER da Parte 3 (ADD COLUMN IF NOT EXISTS) não fez nada nessa coluna. Ocorrências antigas devem estar como 'pendente' (e talvez 'resolvida'), valores que a API não usa. Precisa de SQL: default 'aberta' e conversão pendente->aberta, resolvida->concluida (texto exato a aprovar).
+- DECIDIDO (19/10): manter veiculos_placa_key; inativo segura a placa; mensagem "Já existe um veículo inativo com esta placa. Reative-o em vez de cadastrar novo."; normalizar placa na API (maiúscula, sem hífen/espaço, vazio -> NULL). Fazer na 6B. Substitui a decisão da Parte 2.
 - Placa: já existe o índice único veiculos_placa_key (placa exata, inclui veículos inativos). A decisão da Parte 2 de liberar a placa de veículo inativo não vale no banco: o cadastro com a mesma placa exata cai no índice (400 "Já existe um veículo com esta placa."). E "ABC-1D23" x "ABC1D23" passam no banco (a API barra).
+- DECIDIDO (19/10): leitura de perfil tolerante (fazer na 6B); regra do administrador aguarda contagem de perfis do Yago.
 - Perfil: o enum perfil_usuario tem 'administrador', mas o código só conhece gestor e motorista. Um usuário administrador quebra o carregamento (ex.: GET /usuarios) e não tem acesso nenhum com a matriz ligada.
+- DECIDIDO (19/10): corrigir dentro dos triggers (sem GREATEST), ver PLANO "Decisões do coordenador". Texto exato vai no relatório da 6B; original guardado como rollback.
 - Triggers: fn_abre_diario (veículo em_uso + histórico) e fn_fecha_diario (calcula medidor_percorrido, grava veiculos.medidor_atual = medidor_final, veículo disponivel + histórico). O fechamento devolve o veículo para disponivel mesmo com manutenção aberta (mesmo problema do item 19). Com fila offline, um fechamento antigo chegando depois pode fazer o medidor_atual voltar para trás.
 - Enum status_veiculo tem 'manutencao' e 'em_manutencao' (o código usa em_manutencao).
 - checklist_respostas tem índice único (diario_id, item_id): reenviar o checklist hoje dá erro (500).
+- ACHADO 19/10 (corrigido na etapa 0 da 6B): 3 listas de abastecimento (GET /abastecimentos, /veiculo/{id}, /motorista/{login}) e GET /checklist/respostas/diario/{id} liam "a.*"/"cr.*" por posição; qualquer coluna nova nessas tabelas quebraria as telas. Agora as colunas são explícitas. Por isso o lote com a etapa 0 precisa ir ao ar antes do SQL da 6B.
 - Colunas de horário são todas "timestamp without time zone" (PASSO 0 da 6A ok para abastecimentos e ocorrências).
 - Existem tabelas fotos (tipo_foto: medidor_abertura, medidor_fechamento, ocorrencia, livre) e cnh, sem uso pela API (item 14).
+- Consultas do Yago (19/10): perfis = 5 motoristas e 2 gestores (nenhum administrador: leitura tolerante do perfil fica para a 6B, sem urgência, sem regra nova); ocorrências = 3, todas 'pendente' (a normalização do Passo 1 é só garantia); manutenções = 3 concluida e 3 em_andamento; veículos = 3 disponivel e 2 em_manutencao; placas = 2 NULL, 0 vazias, 0 fora do padrão.
+- manutencoes tem veiculo_id, status (varchar, default 'aberta') e concluida_em: o trigger novo da 6B usa status <> 'concluida'.
+- ACHADO (não mexi): manutencoes.custo_mao_obra aceita NULL no banco, mas a entidade Manutencao trata como obrigatório (BigDecimal). Uma linha com NULL quebraria a lista de manutenções. Sugestão: SET NOT NULL depois de conferir (SELECT COUNT(*) FROM manutencoes WHERE custo_mao_obra IS NULL) ou tornar o campo opcional no código.
 
 ## Outras pendências do projeto (fora da API)
 - Front: Partes 6, 7 e 8 do plano; escolher a paleta (A Petróleo, B Musgo ou C Grafite); ligar validarDigitosCpf antes de usar de verdade.

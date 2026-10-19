@@ -1,0 +1,501 @@
+SGFE - SQL PARA REVISÃO (gerado em 19/10/2026 a partir de docs/migracoes.sql)
+Somente texto: nada aqui foi executado. Os blocos são cópia exata do docs/migracoes.sql.
+Ordem combinada:
+  1) (a) diagnóstico da Parte 5 e (b) vocabulário das ocorrências -> ANTES do deploy do lote
+  2) deploy do lote (Passo 1 + etapa 0 da 6B)
+  3) (e) PASSO 0 e PASSO 1 da 6A -> depois do deploy da 6A (já no ar); PASSO 2 só com autorização
+  4) (c) SQL 1 da 6B -> depois do deploy do lote, antes do código da 6B
+  5) (d) SQL 2 (triggers) -> só depois da revisão do coordenador
+  (f) verificação do item 4 (só leitura) -> pode rodar a qualquer momento
+
+##############################################################################
+(a) DIAGNÓSTICO DA PARTE 5 (só leitura)
+
+-- =====================================================================
+-- 19/10/2026 - Parte 5 (segurança e bloqueios) - SÓ LEITURA, rodar ANTES do deploy
+-- =====================================================================
+-- Depois da Parte 5 a API recusa abrir diário quando o motorista:
+--   a) não tem PIN de assinatura, ou
+--   b) tem diário FECHADO aguardando assinatura.
+-- Diários antigos (de antes da assinatura existir) podem estar como 'fechado' e
+-- travar motoristas. Confira quem seria bloqueado hoje:
+-- SELECT u.login, u.nome_completo,
+--        (u.pin_assinatura_hash IS NOT NULL) AS tem_pin,
+--        COUNT(d.id) FILTER (WHERE d.status = 'fechado') AS diarios_pendentes,
+--        MIN(d.fechado_em) FILTER (WHERE d.status = 'fechado') AS pendente_mais_antigo
+-- FROM usuarios u
+-- LEFT JOIN diarios_bordo d ON d.usuario_id = u.id
+-- WHERE CAST(u.perfil AS text) = 'motorista' AND u.ativo = true
+-- GROUP BY u.login, u.nome_completo, u.pin_assinatura_hash
+-- ORDER BY diarios_pendentes DESC, u.login;
+-- Se aparecerem muitos pendentes antigos, me mande o resultado antes do deploy.
+
+##############################################################################
+(b) OCORRÊNCIAS: VOCABULÁRIO DO BANCO (abre com BEGIN; confira o SELECT e termine com COMMIT, ou ROLLBACK)
+
+-- =====================================================================
+-- 19/10/2026 - Ocorrências: vocabulário do banco (pendente, em_andamento, resolvida)
+-- RODAR ANTES DO DEPLOY do lote Parte 3 + Parte 5 + codigo. Idempotente; rodar nesta ordem.
+-- O código antigo não grava status (usa o default 'pendente'), então tudo isto é compatível com ele.
+-- =====================================================================
+-- Conferência antes (só leitura):
+-- SELECT status, COUNT(*) FROM ocorrencias GROUP BY status;
+
+BEGIN;
+
+-- 1) Normalização: só para o caso de algum código antigo ter gravado o vocabulário velho.
+UPDATE ocorrencias SET status = 'pendente'  WHERE status = 'aberta';
+UPDATE ocorrencias SET status = 'resolvida' WHERE status = 'concluida';
+
+-- 2) Backfill da Parte 3 (status calculado pelas manutenções vinculadas).
+--    (manutenção continua com aberta / em_andamento / concluida)
+-- 2a) Alguma manutenção vinculada ainda não concluída -> em_andamento
+UPDATE ocorrencias o SET status = 'em_andamento', resolvida_em = NULL
+WHERE EXISTS (SELECT 1 FROM manutencoes m WHERE m.ocorrencia_id = o.id AND m.status <> 'concluida');
+
+-- 2b) Tem manutenção vinculada e TODAS concluídas -> resolvida (mantém resolvida_em se já houver)
+UPDATE ocorrencias o SET status = 'resolvida',
+       resolvida_em = COALESCE(o.resolvida_em,
+                               (SELECT MAX(m.concluida_em) FROM manutencoes m WHERE m.ocorrencia_id = o.id))
+WHERE EXISTS (SELECT 1 FROM manutencoes m WHERE m.ocorrencia_id = o.id)
+  AND NOT EXISTS (SELECT 1 FROM manutencoes m WHERE m.ocorrencia_id = o.id AND m.status <> 'concluida');
+
+-- 3) Por último: o banco passa a barrar valor fora do vocabulário (a coluna é varchar).
+--    DROP antes do ADD para poder rodar de novo.
+ALTER TABLE ocorrencias DROP CONSTRAINT IF EXISTS ck_ocorrencias_status;
+ALTER TABLE ocorrencias ADD CONSTRAINT ck_ocorrencias_status
+    CHECK (status IN ('pendente', 'em_andamento', 'resolvida'));
+
+-- Confira: SELECT status, COUNT(*) FROM ocorrencias GROUP BY status;
+-- Se estiver certo: COMMIT;   Se não: ROLLBACK;
+-- (Se o ADD CONSTRAINT falhar, existe algum valor fora dos três: o SELECT acima mostra qual.)
+
+-- DESFAZER (se precisar): ALTER TABLE ocorrencias DROP CONSTRAINT IF EXISTS ck_ocorrencias_status;
+
+##############################################################################
+(c) PARTE 6B - SQL 1: COLUNAS E ÍNDICES
+
+-- =====================================================================
+-- 19/10/2026 - Parte 6B - SQL 1 de 2: COLUNAS NOVAS
+-- NÃO RODAR AGORA. Ordem obrigatória:
+--   1) deploy do lote (Passo 1 + "etapa 0 da 6B": consultas de abastecimento e
+--      checklist com colunas explícitas). Com o código ANTIGO no ar, colunas novas
+--      em abastecimentos/checklist_respostas quebram telas que liam "a.*" por posição;
+--   2) rodar este bloco;
+--   3) deploy do código da 6B.
+-- Tudo aditivo e idempotente. Volume pequeno: sem risco de tempo.
+-- =====================================================================
+/*
+BEGIN;
+
+ALTER TABLE turnos
+    ADD COLUMN IF NOT EXISTS aberto_recebido_em  timestamp,
+    ADD COLUMN IF NOT EXISTS fechado_recebido_em timestamp,
+    ADD COLUMN IF NOT EXISTS id_local_abertura   uuid,
+    ADD COLUMN IF NOT EXISTS id_local_fechamento uuid,
+    ADD COLUMN IF NOT EXISTS horario_suspeito    boolean NOT NULL DEFAULT false,
+    ADD COLUMN IF NOT EXISTS motivo_suspeita     varchar(255);
+
+ALTER TABLE diarios_bordo
+    ADD COLUMN IF NOT EXISTS aberto_recebido_em    timestamp,
+    ADD COLUMN IF NOT EXISTS fechado_recebido_em   timestamp,
+    ADD COLUMN IF NOT EXISTS id_local_abertura     uuid,
+    ADD COLUMN IF NOT EXISTS id_local_fechamento   uuid,
+    ADD COLUMN IF NOT EXISTS desvio_abertura_seg   integer,
+    ADD COLUMN IF NOT EXISTS desvio_fechamento_seg integer,
+    ADD COLUMN IF NOT EXISTS horario_suspeito      boolean NOT NULL DEFAULT false,
+    ADD COLUMN IF NOT EXISTS motivo_suspeita       varchar(255);
+
+ALTER TABLE abastecimentos
+    ADD COLUMN IF NOT EXISTS recebido_em        timestamp,
+    ADD COLUMN IF NOT EXISTS id_local           uuid,
+    ADD COLUMN IF NOT EXISTS desvio_relogio_seg integer,
+    ADD COLUMN IF NOT EXISTS horario_suspeito   boolean NOT NULL DEFAULT false,
+    ADD COLUMN IF NOT EXISTS motivo_suspeita    varchar(255),
+    -- APROVADO 19/10: quem registrou (usuário do token; no comboio não é o dono do diário). Antigos ficam nulos.
+    ADD COLUMN IF NOT EXISTS registrado_por     uuid;
+
+ALTER TABLE ocorrencias
+    ADD COLUMN IF NOT EXISTS recebido_em        timestamp,
+    ADD COLUMN IF NOT EXISTS id_local           uuid,
+    ADD COLUMN IF NOT EXISTS desvio_relogio_seg integer,
+    ADD COLUMN IF NOT EXISTS horario_suspeito   boolean NOT NULL DEFAULT false,
+    ADD COLUMN IF NOT EXISTS motivo_suspeita    varchar(255);
+
+ALTER TABLE rastreamento_gps
+    ADD COLUMN IF NOT EXISTS recebido_em        timestamp,
+    ADD COLUMN IF NOT EXISTS id_local           uuid,
+    ADD COLUMN IF NOT EXISTS desvio_relogio_seg integer,
+    ADD COLUMN IF NOT EXISTS horario_suspeito   boolean NOT NULL DEFAULT false,
+    ADD COLUMN IF NOT EXISTS motivo_suspeita    varchar(255);
+
+ALTER TABLE checklist_respostas
+    ADD COLUMN IF NOT EXISTS recebido_em timestamp;
+
+-- Reenvio sem duplicar: índice único parcial por id_local
+CREATE UNIQUE INDEX IF NOT EXISTS uq_turnos_id_local_abertura    ON turnos (id_local_abertura)          WHERE id_local_abertura   IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_turnos_id_local_fechamento  ON turnos (id_local_fechamento)        WHERE id_local_fechamento IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_diarios_id_local_abertura   ON diarios_bordo (id_local_abertura)   WHERE id_local_abertura   IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_diarios_id_local_fechamento ON diarios_bordo (id_local_fechamento) WHERE id_local_fechamento IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_abastecimentos_id_local     ON abastecimentos (id_local)           WHERE id_local IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_ocorrencias_id_local        ON ocorrencias (id_local)              WHERE id_local IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_rastreamento_id_local       ON rastreamento_gps (id_local)         WHERE id_local IS NOT NULL;
+
+COMMIT;
+*/
+
+##############################################################################
+(d) PARTE 6B - SQL 2: TRIGGERS NOVOS + ROLLBACK (texto original)
+
+-- =====================================================================
+-- 19/10/2026 - Parte 6B - SQL 2 de 2: TRIGGERS NOVOS
+-- NÃO RODAR antes da revisão do coordenador. Independe do deploy (o código funciona
+-- com o trigger antigo ou com o novo).
+-- fn_fecha_diario:
+--   a) medidor_atual só muda se este for o fechamento MAIS RECENTE do veículo (por fechado_em);
+--   b) status: inativo continua inativo; manutenção não concluída -> em_manutencao; senão disponivel;
+--   c) histórico com o status real (antes e depois) e alterado_em = hora do evento (fechado_em).
+-- fn_abre_diario: histórico com alterado_em = aberto_em (hora do evento). O status de antes já era o real.
+-- =====================================================================
+/*
+CREATE OR REPLACE FUNCTION public.fn_fecha_diario()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+    v_fechado_em    timestamp := COALESCE(NEW.fechado_em, NOW());
+    v_status_antes  status_veiculo;
+    v_status_depois status_veiculo;
+    v_mais_recente  boolean;
+BEGIN
+    IF NEW.status = 'fechado' AND OLD.status = 'aberto' AND NEW.medidor_final IS NOT NULL THEN
+
+        NEW.medidor_percorrido = NEW.medidor_final - NEW.medidor_inicial;
+
+        SELECT status INTO v_status_antes FROM veiculos WHERE id = NEW.veiculo_id FOR UPDATE;
+
+        -- a) um fechamento antigo que chega atrasado (fila offline) não faz o medidor voltar
+        v_mais_recente := NOT EXISTS (
+            SELECT 1 FROM diarios_bordo d
+            WHERE d.veiculo_id = NEW.veiculo_id
+              AND d.id <> NEW.id
+              AND d.status IN ('fechado', 'assinado')
+              AND d.fechado_em > v_fechado_em
+        );
+
+        -- b) status real do veículo depois do fechamento
+        IF v_status_antes = 'inativo' THEN
+            v_status_depois := 'inativo';
+        ELSIF EXISTS (SELECT 1 FROM manutencoes m
+                      WHERE m.veiculo_id = NEW.veiculo_id AND m.status <> 'concluida') THEN
+            v_status_depois := 'em_manutencao';
+        ELSE
+            v_status_depois := 'disponivel';
+        END IF;
+
+        UPDATE veiculos
+        SET medidor_atual = CASE WHEN v_mais_recente THEN NEW.medidor_final ELSE medidor_atual END,
+            status        = v_status_depois,
+            atualizado_em = NOW()
+        WHERE id = NEW.veiculo_id;
+
+        -- c) histórico com o status real e a hora do evento
+        INSERT INTO veiculo_status_historico (veiculo_id, status_antes, status_depois, alterado_por, alterado_em)
+        VALUES (NEW.veiculo_id, v_status_antes, v_status_depois, NEW.usuario_id, v_fechado_em);
+
+    END IF;
+    RETURN NEW;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.fn_abre_diario()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+    v_status_antes status_veiculo;
+BEGIN
+    SELECT status INTO v_status_antes FROM veiculos WHERE id = NEW.veiculo_id FOR UPDATE;
+
+    UPDATE veiculos
+    SET status        = 'em_uso',
+        atualizado_em = NOW()
+    WHERE id = NEW.veiculo_id;
+
+    INSERT INTO veiculo_status_historico (veiculo_id, status_antes, status_depois, alterado_por, alterado_em)
+    VALUES (NEW.veiculo_id, v_status_antes, 'em_uso', NEW.usuario_id, COALESCE(NEW.aberto_em, NOW()));
+
+    RETURN NEW;
+END;
+$function$;
+*/
+
+-- ROLLBACK dos triggers: texto ORIGINAL (consulta C4 de 19/10). Rodar só para voltar.
+/*
+CREATE OR REPLACE FUNCTION public.fn_abre_diario()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+    v_status_antes status_veiculo;
+BEGIN
+    SELECT status INTO v_status_antes FROM veiculos WHERE id = NEW.veiculo_id;
+
+    UPDATE veiculos
+    SET status        = 'em_uso',
+        atualizado_em = NOW()
+    WHERE id = NEW.veiculo_id;
+
+    INSERT INTO veiculo_status_historico (veiculo_id, status_antes, status_depois, alterado_por)
+    VALUES (NEW.veiculo_id, v_status_antes, 'em_uso', NEW.usuario_id);
+
+    RETURN NEW;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.fn_fecha_diario()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+BEGIN
+    IF NEW.status = 'fechado' AND OLD.status = 'aberto' AND NEW.medidor_final IS NOT NULL THEN
+
+        NEW.medidor_percorrido = NEW.medidor_final - NEW.medidor_inicial;
+
+        UPDATE veiculos
+        SET medidor_atual  = NEW.medidor_final,
+            status         = 'disponivel',
+            atualizado_em  = NOW()
+        WHERE id = NEW.veiculo_id;
+
+        INSERT INTO veiculo_status_historico (veiculo_id, status_antes, status_depois, alterado_por)
+        VALUES (NEW.veiculo_id, 'em_uso', 'disponivel', NEW.usuario_id);
+
+    END IF;
+    RETURN NEW;
+END;
+$function$;
+*/
+
+##############################################################################
+(e) PARTE 6A: PASSO 0, PASSO 1 E BACKFILL (PASSO 2) + DESFAZER
+
+-- =====================================================================
+-- 19/10/2026 - Parte 6A (fuso): registros antigos gravados em hora de Brasília
+-- =====================================================================
+-- Contexto: até a Parte 6A, quando o app mandava registradoEm (epoch em ms),
+-- a API gravava abastecimentos.registrado_em e ocorrencias.registrado_em em hora
+-- de BRASÍLIA (3 h atrás do UTC). Sem registradoEm, gravava a hora do servidor (UTC).
+--
+-- Como separar os dois casos com segurança: cada registro tem um log gravado NA MESMA
+-- requisição (logs.criado_em = hora do recebimento, em UTC). O registro é casado com o
+-- log pelo login + texto do log (tipo/valores), e a diferença decide:
+--   - log até 2 min depois de registrado_em  -> hora do servidor, está certo (não mexe);
+--   - log 2h55 ou mais depois                -> hora de Brasília (+3 h corrige);
+--   - nenhum log casado, mais de um, ou diferença entre 2 min e 2h55 -> "sem_log_seguro" (não mexe).
+-- Abastecimento de diário JÁ ASSINADO não é corrigido: o horário dele entra no resumo
+-- da assinatura (AssinaturaService) e a verificação passaria a dizer "não íntegro".
+--
+-- ORDEM: 1) deploy da 6A; 2) PASSO 0 e PASSO 1 (só leitura); 3) mandar o resultado;
+--        4) só com autorização: PASSO 2.
+
+-- PASSO 0 (só leitura): conferir que as colunas são "timestamp without time zone".
+-- Se aparecer "with time zone", PARE e avise.
+-- SELECT table_name, column_name, data_type
+-- FROM information_schema.columns
+-- WHERE table_schema = 'public'
+--   AND (table_name, column_name) IN (('abastecimentos','registrado_em'), ('ocorrencias','registrado_em'), ('logs','criado_em'));
+
+-- PASSO 1 (só leitura). Rode o bloco inteiro na mesma janela/sessão.
+-- As TEMP VIEWs somem sozinhas ao fechar a sessão (não alteram o banco).
+-- TROQUE a data do corte pela data/hora (UTC) em que o deploy da 6A ficou no ar.
+/*
+CREATE OR REPLACE TEMP VIEW vw_6a_parametros AS
+SELECT TIMESTAMP '2026-10-20 00:00:00' AS corte;   -- <<< deploy da 6A, em UTC
+
+CREATE OR REPLACE TEMP VIEW vw_6a_abastecimentos AS
+WITH abast AS (
+    SELECT a.id, a.registrado_em, a.veiculo_abastecido_id, u.login,
+           (d.assinatura_hash IS NOT NULL) AS diario_assinado,
+           'Abastecimento registrado — ' || a.tipo_combustivel || ', ' AS prefixo,
+           to_char(a.litros, 'FM999999990.0') || ' L, R$ ' || to_char(a.valor_total, 'FM999999990.00') AS val_ponto,
+           replace(to_char(a.litros, 'FM999999990.0'), '.', ',') || ' L, R$ '
+             || replace(to_char(a.valor_total, 'FM999999990.00'), '.', ',') AS val_virgula
+    FROM abastecimentos a
+    JOIN diarios_bordo d ON d.id = a.diario_id
+    JOIN usuarios u ON u.id = d.usuario_id
+),
+casados AS (
+    -- no comboio o log fica com o login de quem abasteceu (outro motorista), então não exige login
+    SELECT x.id, l.id AS log_id, l.criado_em, l.criado_em - x.registrado_em AS diferenca
+    FROM abast x
+    JOIN logs l ON l.acao = 'ABASTECIMENTO'
+     AND (x.veiculo_abastecido_id IS NOT NULL OR l.usuario_login = x.login)
+     AND (l.descricao LIKE x.prefixo || x.val_ponto || '%' OR l.descricao LIKE x.prefixo || x.val_virgula || '%')
+     AND l.criado_em BETWEEN x.registrado_em - INTERVAL '1 minute' AND x.registrado_em + INTERVAL '30 days'
+),
+tres_horas AS (
+    SELECT c.*, COUNT(*) OVER (PARTITION BY c.log_id) AS registros_no_mesmo_log
+    FROM casados c WHERE c.diferenca >= INTERVAL '2 hours 55 minutes'
+),
+resumo AS (
+    SELECT x.id, x.registrado_em, x.login, x.diario_assinado,
+           (SELECT COUNT(*) FROM casados c WHERE c.id = x.id AND c.diferenca <= INTERVAL '2 minutes') AS logs_na_hora,
+           (SELECT COUNT(*) FROM tres_horas t WHERE t.id = x.id) AS logs_3h,
+           (SELECT MAX(t.registros_no_mesmo_log) FROM tres_horas t WHERE t.id = x.id) AS registros_no_mesmo_log,
+           (SELECT MIN(t.criado_em) FROM tres_horas t WHERE t.id = x.id) AS log_em
+    FROM abast x
+)
+SELECT r.*, r.log_em - r.registrado_em AS diferenca,
+       CASE
+         WHEN r.logs_na_hora > 0 THEN 'ok_hora_do_servidor'
+         WHEN r.logs_3h = 1 AND r.registros_no_mesmo_log = 1 AND r.log_em < p.corte AND r.diario_assinado THEN 'brasilia_diario_assinado_nao_corrigir'
+         WHEN r.logs_3h = 1 AND r.registros_no_mesmo_log = 1 AND r.log_em < p.corte THEN 'corrigir_mais_3h'
+         ELSE 'sem_log_seguro'
+       END AS classe
+FROM resumo r CROSS JOIN vw_6a_parametros p;
+
+CREATE OR REPLACE TEMP VIEW vw_6a_ocorrencias AS
+WITH ocorr AS (
+    SELECT o.id, o.registrado_em, u.login,
+           'Ocorrência registrada — Tipo: ' || o.tipo || ', Descrição: ' || o.descricao AS texto_log
+    FROM ocorrencias o
+    JOIN diarios_bordo d ON d.id = o.diario_id
+    JOIN usuarios u ON u.id = d.usuario_id
+),
+casados AS (
+    SELECT x.id, l.id AS log_id, l.criado_em, l.criado_em - x.registrado_em AS diferenca
+    FROM ocorr x
+    JOIN logs l ON l.acao = 'OCORRENCIA' AND l.usuario_login = x.login
+     AND (l.descricao = x.texto_log OR (length(x.texto_log) > 255 AND l.descricao = left(x.texto_log, 254) || '…'))
+     AND l.criado_em BETWEEN x.registrado_em - INTERVAL '1 minute' AND x.registrado_em + INTERVAL '30 days'
+),
+tres_horas AS (
+    SELECT c.*, COUNT(*) OVER (PARTITION BY c.log_id) AS registros_no_mesmo_log
+    FROM casados c WHERE c.diferenca >= INTERVAL '2 hours 55 minutes'
+),
+resumo AS (
+    SELECT x.id, x.registrado_em, x.login,
+           (SELECT COUNT(*) FROM casados c WHERE c.id = x.id AND c.diferenca <= INTERVAL '2 minutes') AS logs_na_hora,
+           (SELECT COUNT(*) FROM tres_horas t WHERE t.id = x.id) AS logs_3h,
+           (SELECT MAX(t.registros_no_mesmo_log) FROM tres_horas t WHERE t.id = x.id) AS registros_no_mesmo_log,
+           (SELECT MIN(t.criado_em) FROM tres_horas t WHERE t.id = x.id) AS log_em
+    FROM ocorr x
+)
+SELECT r.*, r.log_em - r.registrado_em AS diferenca,
+       CASE
+         WHEN r.logs_na_hora > 0 THEN 'ok_hora_do_servidor'
+         WHEN r.logs_3h = 1 AND r.registros_no_mesmo_log = 1 AND r.log_em < p.corte THEN 'corrigir_mais_3h'
+         ELSE 'sem_log_seguro'
+       END AS classe
+FROM resumo r CROSS JOIN vw_6a_parametros p;
+
+-- Contagem por classe (mande este resultado):
+SELECT 'abastecimentos' AS tabela, classe, COUNT(*) FROM vw_6a_abastecimentos GROUP BY classe
+UNION ALL
+SELECT 'ocorrencias', classe, COUNT(*) FROM vw_6a_ocorrencias GROUP BY classe
+ORDER BY 1, 2;
+
+-- Amostra (mande também):
+(SELECT 'abastecimentos' AS tabela, id, login, registrado_em, log_em, diferenca, classe
+ FROM vw_6a_abastecimentos ORDER BY classe, registrado_em DESC LIMIT 15)
+UNION ALL
+(SELECT 'ocorrencias', id, login, registrado_em, log_em, diferenca, classe
+ FROM vw_6a_ocorrencias ORDER BY classe, registrado_em DESC LIMIT 15);
+*/
+
+-- PASSO 2 - CORREÇÃO (backfill). NÃO RODE sem autorização do texto exato.
+-- Precisa das TEMP VIEWs do PASSO 1 criadas na MESMA sessão.
+-- Guarda o valor antigo em correcao_fuso_6a (permite desfazer) e só soma 3 h em quem
+-- ainda está com o valor antigo: rodar duas vezes não soma 6 h.
+/*
+BEGIN;
+
+CREATE TABLE IF NOT EXISTS correcao_fuso_6a (
+    tabela              text      NOT NULL,
+    registro_id         uuid      NOT NULL,
+    registrado_em_antes timestamp NOT NULL,
+    corrigido_em        timestamp NOT NULL DEFAULT (NOW() AT TIME ZONE 'UTC'),
+    PRIMARY KEY (tabela, registro_id)
+);
+
+INSERT INTO correcao_fuso_6a (tabela, registro_id, registrado_em_antes)
+SELECT 'abastecimentos', id, registrado_em FROM vw_6a_abastecimentos WHERE classe = 'corrigir_mais_3h'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO correcao_fuso_6a (tabela, registro_id, registrado_em_antes)
+SELECT 'ocorrencias', id, registrado_em FROM vw_6a_ocorrencias WHERE classe = 'corrigir_mais_3h'
+ON CONFLICT DO NOTHING;
+
+UPDATE abastecimentos a SET registrado_em = c.registrado_em_antes + INTERVAL '3 hours'
+FROM correcao_fuso_6a c
+WHERE c.tabela = 'abastecimentos' AND c.registro_id = a.id AND a.registrado_em = c.registrado_em_antes;
+
+UPDATE ocorrencias o SET registrado_em = c.registrado_em_antes + INTERVAL '3 hours'
+FROM correcao_fuso_6a c
+WHERE c.tabela = 'ocorrencias' AND c.registro_id = o.id AND o.registrado_em = c.registrado_em_antes;
+
+-- Confira os números mostrados pelos UPDATEs (devem bater com a contagem "corrigir_mais_3h").
+-- Se baterem: COMMIT;   Se não: ROLLBACK;
+*/
+
+-- DESFAZER o PASSO 2 (se precisar):
+/*
+BEGIN;
+UPDATE abastecimentos a SET registrado_em = c.registrado_em_antes
+FROM correcao_fuso_6a c
+WHERE c.tabela = 'abastecimentos' AND c.registro_id = a.id AND a.registrado_em = c.registrado_em_antes + INTERVAL '3 hours';
+UPDATE ocorrencias o SET registrado_em = c.registrado_em_antes
+FROM correcao_fuso_6a c
+WHERE c.tabela = 'ocorrencias' AND c.registro_id = o.id AND o.registrado_em = c.registrado_em_antes + INTERVAL '3 hours';
+COMMIT;
+*/
+
+##############################################################################
+(f) VERIFICAÇÃO DO ITEM 4: COLUNAS USADAS PELO LOTE (só leitura)
+
+-- Resultado VAZIO = o lote não depende de nenhuma coluna que falte no banco.
+-- Qualquer linha que aparecer é uma coluna usada pelo código que NÃO existe.
+SELECT e.tabela, e.coluna
+FROM (VALUES
+       ('abastecimentos','diario_id'), ('abastecimentos','id'), ('abastecimentos','litros'), ('abastecimentos','posto'),
+       ('abastecimentos','registrado_em'), ('abastecimentos','sincronizado'), ('abastecimentos','tipo_combustivel'), ('abastecimentos','valor_total'),
+       ('abastecimentos','veiculo_abastecido_id'), ('checklist_itens','ativo'), ('checklist_itens','descricao'), ('checklist_itens','id'),
+       ('checklist_itens','obrigatorio'), ('checklist_itens','ordem'), ('checklist_itens','template_id'), ('checklist_respostas','diario_id'),
+       ('checklist_respostas','id'), ('checklist_respostas','item_id'), ('checklist_respostas','observacao'), ('checklist_respostas','ok'),
+       ('checklist_respostas','registrado_em'), ('checklist_templates','ativo'), ('checklist_templates','criado_em'), ('checklist_templates','id'),
+       ('checklist_templates','nome'), ('diarios_bordo','aberto_em'), ('diarios_bordo','assinado_em'), ('diarios_bordo','assinatura_hash'),
+       ('diarios_bordo','destino'), ('diarios_bordo','fechado_em'), ('diarios_bordo','id'), ('diarios_bordo','medidor_final'),
+       ('diarios_bordo','medidor_inicial'), ('diarios_bordo','medidor_percorrido'), ('diarios_bordo','motivo_uso_id'), ('diarios_bordo','observacao_fechamento'),
+       ('diarios_bordo','status'), ('diarios_bordo','turno_id'), ('diarios_bordo','usuario_id'), ('diarios_bordo','veiculo_id'),
+       ('logs','acao'), ('logs','criado_em'), ('logs','descricao'), ('logs','id'),
+       ('logs','ip'), ('logs','usuario_login'), ('logs','usuario_nome'), ('manutencao_pecas','codigo_peca'),
+       ('manutencao_pecas','criado_em'), ('manutencao_pecas','id'), ('manutencao_pecas','manutencao_id'), ('manutencao_pecas','marca_peca'),
+       ('manutencao_pecas','nome_peca'), ('manutencao_pecas','quantidade'), ('manutencao_pecas','valor_unitario'), ('manutencoes','aberta_em'),
+       ('manutencoes','atualizado_em'), ('manutencoes','concluida_em'), ('manutencoes','criado_em'), ('manutencoes','custo_mao_obra'),
+       ('manutencoes','descricao'), ('manutencoes','foto_nota_fiscal'), ('manutencoes','id'), ('manutencoes','mecanico_responsavel'),
+       ('manutencoes','observacoes'), ('manutencoes','ocorrencia_id'), ('manutencoes','oficina'), ('manutencoes','status'),
+       ('manutencoes','tipo'), ('manutencoes','veiculo_id'), ('mecanicos','ativo'), ('mecanicos','criado_em'),
+       ('mecanicos','especialidade'), ('mecanicos','id'), ('mecanicos','nome'), ('mecanicos','telefone'),
+       ('motivos_uso','descricao'), ('motivos_uso','id'), ('ocorrencias','descricao'), ('ocorrencias','diario_id'),
+       ('ocorrencias','id'), ('ocorrencias','latitude'), ('ocorrencias','longitude'), ('ocorrencias','registrado_em'),
+       ('ocorrencias','resolvida_em'), ('ocorrencias','status'), ('ocorrencias','tipo'), ('postos','ativo'),
+       ('postos','cidade'), ('postos','criado_em'), ('postos','endereco'), ('postos','id'),
+       ('postos','nome'), ('rastreamento_gps','diario_id'), ('rastreamento_gps','id'), ('rastreamento_gps','latitude'),
+       ('rastreamento_gps','longitude'), ('rastreamento_gps','registrado_em'), ('rastreamento_gps','velocidade'), ('secretarias','id'),
+       ('secretarias','nome'), ('tipo_veiculo','id'), ('tipo_veiculo','medidor'), ('tipo_veiculo','nome'),
+       ('turnos','aberto_em'), ('turnos','fechado_em'), ('turnos','id'), ('turnos','status'),
+       ('turnos','usuario_id'), ('usuarios','ativo'), ('usuarios','atualizado_em'), ('usuarios','categoria_cnh'),
+       ('usuarios','cpf'), ('usuarios','criado_em'), ('usuarios','foto_perfil'), ('usuarios','id'),
+       ('usuarios','login'), ('usuarios','matricula'), ('usuarios','nome_completo'), ('usuarios','perfil'),
+       ('usuarios','pin_assinatura_hash'), ('usuarios','pin_bloqueado_ate'), ('usuarios','pin_tentativas_erradas'), ('usuarios','secretaria_id'),
+       ('usuarios','senha_hash'), ('usuarios','telefone'), ('usuarios','token_fcm'), ('usuarios','validade_cnh'),
+       ('usuarios','vinculo'), ('veiculos','ano'), ('veiculos','atualizado_em'), ('veiculos','chassi'),
+       ('veiculos','comboio'), ('veiculos','cor'), ('veiculos','criado_em'), ('veiculos','descricao'),
+       ('veiculos','id'), ('veiculos','marca'), ('veiculos','medidor_atual'), ('veiculos','modelo'),
+       ('veiculos','placa'), ('veiculos','renavam'), ('veiculos','status'), ('veiculos','tipo_id')
+     ) AS e(tabela, coluna)
+LEFT JOIN information_schema.columns c
+       ON c.table_schema = 'public' AND c.table_name = e.tabela AND c.column_name = e.coluna
+WHERE c.column_name IS NULL
+ORDER BY 1, 2;

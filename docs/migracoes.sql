@@ -2,6 +2,10 @@
 -- Regras: idempotente (IF NOT EXISTS), aditiva e compatível com o código anterior.
 -- Ordem em produção: o Yago roda o SQL e DEPOIS faz o deploy do código.
 -- Backfill (correção de dados existentes) fica em bloco separado e comentado.
+--
+-- CONVENÇÃO DE HORÁRIO: todas as colunas de data são "timestamp without time zone"
+-- e guardam UTC. O fuso de Brasília é só para exibição e cortes de dia/mês (Parte 6C).
+-- Não mudar os tipos das colunas.
 
 -- =====================================================================
 -- 19/10/2026 - Parte 2 (validações e unicidade)
@@ -235,40 +239,17 @@ COMMIT;
 -- =====================================================================
 -- 19/10/2026 - Parte 3 (ocorrência com status) - RODAR ANTES DO DEPLOY
 -- =====================================================================
--- O código da Parte 3 lê e grava ocorrencias.status e ocorrencias.resolvida_em.
--- Sem estas colunas, as telas de ocorrência dão erro. Compatível com o código
--- anterior: ele não usa as colunas e o banco preenche status com 'aberta'.
--- Texto (varchar), NÃO enum do Postgres (lição do status_veiculo).
--- Valores: aberta, em_andamento, concluida, descartada (a API valida).
+-- CORRIGIDO 19/10: a coluna ocorrencias.status JÁ EXISTIA (varchar, default
+-- 'pendente'::status_ocorrencia). O vocabulário da ocorrência é o do banco:
+-- pendente, em_andamento, resolvida (decisão do coordenador). O antigo
+-- "ADD COLUMN status ... DEFAULT 'aberta'" foi retirado daqui: NÃO rodar
+-- SET DEFAULT 'aberta'. O backfill desta parte foi SUBSTITUÍDO pelo bloco
+-- "Ocorrências: vocabulário do banco" no fim deste arquivo.
 
-ALTER TABLE ocorrencias ADD COLUMN IF NOT EXISTS status varchar(20) NOT NULL DEFAULT 'aberta';
 ALTER TABLE ocorrencias ADD COLUMN IF NOT EXISTS resolvida_em timestamp;
 
--- Conferência (só leitura):
--- SELECT status, COUNT(*) FROM ocorrencias GROUP BY status;
-
--- BACKFILL das ocorrências que já existem. NÃO RODE sem autorização do texto exato.
--- Pode rodar antes ou depois do deploy (depois do ALTER). Rodar duas vezes dá o mesmo resultado.
--- Ocorrências sem manutenção ficam 'aberta'.
-/*
-BEGIN;
-
--- Tem manutenção vinculada ainda não concluída -> em_andamento
-UPDATE ocorrencias o SET status = 'em_andamento', resolvida_em = NULL
-WHERE EXISTS (SELECT 1 FROM manutencoes m WHERE m.ocorrencia_id = o.id AND m.status <> 'concluida');
-
--- Tem manutenção vinculada e TODAS concluídas -> concluida (resolvida_em = última conclusão)
-UPDATE ocorrencias o SET status = 'concluida',
-       resolvida_em = (SELECT MAX(m.concluida_em) FROM manutencoes m WHERE m.ocorrencia_id = o.id)
-WHERE EXISTS (SELECT 1 FROM manutencoes m WHERE m.ocorrencia_id = o.id)
-  AND NOT EXISTS (SELECT 1 FROM manutencoes m WHERE m.ocorrencia_id = o.id AND m.status <> 'concluida');
-
--- Confira: SELECT status, COUNT(*) FROM ocorrencias GROUP BY status;
--- Se estiver certo: COMMIT;   Se não: ROLLBACK;
-*/
-
 -- DESFAZER: voltar o código para antes da Parte 3 NÃO exige mexer no banco
--- (o código antigo funciona com as colunas novas). Não apague as colunas.
+-- (o código antigo funciona com a coluna nova). Não apague a coluna.
 
 -- =====================================================================
 -- 19/10/2026 - Parte 5 (segurança e bloqueios) - SÓ LEITURA, rodar ANTES do deploy
@@ -328,3 +309,241 @@ WHERE EXISTS (SELECT 1 FROM manutencoes m WHERE m.ocorrencia_id = o.id)
 -- UNION ALL SELECT 'abastecimentos', COUNT(*) FROM abastecimentos
 -- UNION ALL SELECT 'ocorrencias', COUNT(*) FROM ocorrencias
 -- UNION ALL SELECT 'diarios_bordo', COUNT(*) FROM diarios_bordo;
+
+-- =====================================================================
+-- 19/10/2026 - Ocorrências: vocabulário do banco (pendente, em_andamento, resolvida)
+-- RODAR ANTES DO DEPLOY do lote Parte 3 + Parte 5 + codigo. Idempotente; rodar nesta ordem.
+-- O código antigo não grava status (usa o default 'pendente'), então tudo isto é compatível com ele.
+-- =====================================================================
+-- Conferência antes (só leitura):
+-- SELECT status, COUNT(*) FROM ocorrencias GROUP BY status;
+
+BEGIN;
+
+-- 1) Normalização: só para o caso de algum código antigo ter gravado o vocabulário velho.
+UPDATE ocorrencias SET status = 'pendente'  WHERE status = 'aberta';
+UPDATE ocorrencias SET status = 'resolvida' WHERE status = 'concluida';
+
+-- 2) Backfill da Parte 3 (status calculado pelas manutenções vinculadas).
+--    (manutenção continua com aberta / em_andamento / concluida)
+-- 2a) Alguma manutenção vinculada ainda não concluída -> em_andamento
+UPDATE ocorrencias o SET status = 'em_andamento', resolvida_em = NULL
+WHERE EXISTS (SELECT 1 FROM manutencoes m WHERE m.ocorrencia_id = o.id AND m.status <> 'concluida');
+
+-- 2b) Tem manutenção vinculada e TODAS concluídas -> resolvida (mantém resolvida_em se já houver)
+UPDATE ocorrencias o SET status = 'resolvida',
+       resolvida_em = COALESCE(o.resolvida_em,
+                               (SELECT MAX(m.concluida_em) FROM manutencoes m WHERE m.ocorrencia_id = o.id))
+WHERE EXISTS (SELECT 1 FROM manutencoes m WHERE m.ocorrencia_id = o.id)
+  AND NOT EXISTS (SELECT 1 FROM manutencoes m WHERE m.ocorrencia_id = o.id AND m.status <> 'concluida');
+
+-- 3) Por último: o banco passa a barrar valor fora do vocabulário (a coluna é varchar).
+--    DROP antes do ADD para poder rodar de novo.
+ALTER TABLE ocorrencias DROP CONSTRAINT IF EXISTS ck_ocorrencias_status;
+ALTER TABLE ocorrencias ADD CONSTRAINT ck_ocorrencias_status
+    CHECK (status IN ('pendente', 'em_andamento', 'resolvida'));
+
+-- Confira: SELECT status, COUNT(*) FROM ocorrencias GROUP BY status;
+-- Se estiver certo: COMMIT;   Se não: ROLLBACK;
+-- (Se o ADD CONSTRAINT falhar, existe algum valor fora dos três: o SELECT acima mostra qual.)
+
+-- DESFAZER (se precisar): ALTER TABLE ocorrencias DROP CONSTRAINT IF EXISTS ck_ocorrencias_status;
+
+-- =====================================================================
+-- 19/10/2026 - Parte 6B - SQL 1 de 2: COLUNAS NOVAS
+-- NÃO RODAR AGORA. Ordem obrigatória:
+--   1) deploy do lote (Passo 1 + "etapa 0 da 6B": consultas de abastecimento e
+--      checklist com colunas explícitas). Com o código ANTIGO no ar, colunas novas
+--      em abastecimentos/checklist_respostas quebram telas que liam "a.*" por posição;
+--   2) rodar este bloco;
+--   3) deploy do código da 6B.
+-- Tudo aditivo e idempotente. Volume pequeno: sem risco de tempo.
+-- =====================================================================
+/*
+BEGIN;
+
+ALTER TABLE turnos
+    ADD COLUMN IF NOT EXISTS aberto_recebido_em  timestamp,
+    ADD COLUMN IF NOT EXISTS fechado_recebido_em timestamp,
+    ADD COLUMN IF NOT EXISTS id_local_abertura   uuid,
+    ADD COLUMN IF NOT EXISTS id_local_fechamento uuid,
+    ADD COLUMN IF NOT EXISTS horario_suspeito    boolean NOT NULL DEFAULT false,
+    ADD COLUMN IF NOT EXISTS motivo_suspeita     varchar(255);
+
+ALTER TABLE diarios_bordo
+    ADD COLUMN IF NOT EXISTS aberto_recebido_em    timestamp,
+    ADD COLUMN IF NOT EXISTS fechado_recebido_em   timestamp,
+    ADD COLUMN IF NOT EXISTS id_local_abertura     uuid,
+    ADD COLUMN IF NOT EXISTS id_local_fechamento   uuid,
+    ADD COLUMN IF NOT EXISTS desvio_abertura_seg   integer,
+    ADD COLUMN IF NOT EXISTS desvio_fechamento_seg integer,
+    ADD COLUMN IF NOT EXISTS horario_suspeito      boolean NOT NULL DEFAULT false,
+    ADD COLUMN IF NOT EXISTS motivo_suspeita       varchar(255);
+
+ALTER TABLE abastecimentos
+    ADD COLUMN IF NOT EXISTS recebido_em        timestamp,
+    ADD COLUMN IF NOT EXISTS id_local           uuid,
+    ADD COLUMN IF NOT EXISTS desvio_relogio_seg integer,
+    ADD COLUMN IF NOT EXISTS horario_suspeito   boolean NOT NULL DEFAULT false,
+    ADD COLUMN IF NOT EXISTS motivo_suspeita    varchar(255),
+    -- APROVADO 19/10: quem registrou (usuário do token; no comboio não é o dono do diário). Antigos ficam nulos.
+    ADD COLUMN IF NOT EXISTS registrado_por     uuid;
+
+ALTER TABLE ocorrencias
+    ADD COLUMN IF NOT EXISTS recebido_em        timestamp,
+    ADD COLUMN IF NOT EXISTS id_local           uuid,
+    ADD COLUMN IF NOT EXISTS desvio_relogio_seg integer,
+    ADD COLUMN IF NOT EXISTS horario_suspeito   boolean NOT NULL DEFAULT false,
+    ADD COLUMN IF NOT EXISTS motivo_suspeita    varchar(255);
+
+ALTER TABLE rastreamento_gps
+    ADD COLUMN IF NOT EXISTS recebido_em        timestamp,
+    ADD COLUMN IF NOT EXISTS id_local           uuid,
+    ADD COLUMN IF NOT EXISTS desvio_relogio_seg integer,
+    ADD COLUMN IF NOT EXISTS horario_suspeito   boolean NOT NULL DEFAULT false,
+    ADD COLUMN IF NOT EXISTS motivo_suspeita    varchar(255);
+
+ALTER TABLE checklist_respostas
+    ADD COLUMN IF NOT EXISTS recebido_em timestamp;
+
+-- Reenvio sem duplicar: índice único parcial por id_local
+CREATE UNIQUE INDEX IF NOT EXISTS uq_turnos_id_local_abertura    ON turnos (id_local_abertura)          WHERE id_local_abertura   IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_turnos_id_local_fechamento  ON turnos (id_local_fechamento)        WHERE id_local_fechamento IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_diarios_id_local_abertura   ON diarios_bordo (id_local_abertura)   WHERE id_local_abertura   IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_diarios_id_local_fechamento ON diarios_bordo (id_local_fechamento) WHERE id_local_fechamento IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_abastecimentos_id_local     ON abastecimentos (id_local)           WHERE id_local IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_ocorrencias_id_local        ON ocorrencias (id_local)              WHERE id_local IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_rastreamento_id_local       ON rastreamento_gps (id_local)         WHERE id_local IS NOT NULL;
+
+COMMIT;
+*/
+
+-- =====================================================================
+-- 19/10/2026 - Parte 6B - SQL 2 de 2: TRIGGERS NOVOS
+-- NÃO RODAR antes da revisão do coordenador. Independe do deploy (o código funciona
+-- com o trigger antigo ou com o novo).
+-- fn_fecha_diario:
+--   a) medidor_atual só muda se este for o fechamento MAIS RECENTE do veículo (por fechado_em);
+--   b) status: inativo continua inativo; manutenção não concluída -> em_manutencao; senão disponivel;
+--   c) histórico com o status real (antes e depois) e alterado_em = hora do evento (fechado_em).
+-- fn_abre_diario: histórico com alterado_em = aberto_em (hora do evento). O status de antes já era o real.
+-- =====================================================================
+/*
+CREATE OR REPLACE FUNCTION public.fn_fecha_diario()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+    v_fechado_em    timestamp := COALESCE(NEW.fechado_em, NOW());
+    v_status_antes  status_veiculo;
+    v_status_depois status_veiculo;
+    v_mais_recente  boolean;
+BEGIN
+    IF NEW.status = 'fechado' AND OLD.status = 'aberto' AND NEW.medidor_final IS NOT NULL THEN
+
+        NEW.medidor_percorrido = NEW.medidor_final - NEW.medidor_inicial;
+
+        SELECT status INTO v_status_antes FROM veiculos WHERE id = NEW.veiculo_id FOR UPDATE;
+
+        -- a) um fechamento antigo que chega atrasado (fila offline) não faz o medidor voltar
+        v_mais_recente := NOT EXISTS (
+            SELECT 1 FROM diarios_bordo d
+            WHERE d.veiculo_id = NEW.veiculo_id
+              AND d.id <> NEW.id
+              AND d.status IN ('fechado', 'assinado')
+              AND d.fechado_em > v_fechado_em
+        );
+
+        -- b) status real do veículo depois do fechamento
+        IF v_status_antes = 'inativo' THEN
+            v_status_depois := 'inativo';
+        ELSIF EXISTS (SELECT 1 FROM manutencoes m
+                      WHERE m.veiculo_id = NEW.veiculo_id AND m.status <> 'concluida') THEN
+            v_status_depois := 'em_manutencao';
+        ELSE
+            v_status_depois := 'disponivel';
+        END IF;
+
+        UPDATE veiculos
+        SET medidor_atual = CASE WHEN v_mais_recente THEN NEW.medidor_final ELSE medidor_atual END,
+            status        = v_status_depois,
+            atualizado_em = NOW()
+        WHERE id = NEW.veiculo_id;
+
+        -- c) histórico com o status real e a hora do evento
+        INSERT INTO veiculo_status_historico (veiculo_id, status_antes, status_depois, alterado_por, alterado_em)
+        VALUES (NEW.veiculo_id, v_status_antes, v_status_depois, NEW.usuario_id, v_fechado_em);
+
+    END IF;
+    RETURN NEW;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.fn_abre_diario()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+    v_status_antes status_veiculo;
+BEGIN
+    SELECT status INTO v_status_antes FROM veiculos WHERE id = NEW.veiculo_id FOR UPDATE;
+
+    UPDATE veiculos
+    SET status        = 'em_uso',
+        atualizado_em = NOW()
+    WHERE id = NEW.veiculo_id;
+
+    INSERT INTO veiculo_status_historico (veiculo_id, status_antes, status_depois, alterado_por, alterado_em)
+    VALUES (NEW.veiculo_id, v_status_antes, 'em_uso', NEW.usuario_id, COALESCE(NEW.aberto_em, NOW()));
+
+    RETURN NEW;
+END;
+$function$;
+*/
+
+-- ROLLBACK dos triggers: texto ORIGINAL (consulta C4 de 19/10). Rodar só para voltar.
+/*
+CREATE OR REPLACE FUNCTION public.fn_abre_diario()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+    v_status_antes status_veiculo;
+BEGIN
+    SELECT status INTO v_status_antes FROM veiculos WHERE id = NEW.veiculo_id;
+
+    UPDATE veiculos
+    SET status        = 'em_uso',
+        atualizado_em = NOW()
+    WHERE id = NEW.veiculo_id;
+
+    INSERT INTO veiculo_status_historico (veiculo_id, status_antes, status_depois, alterado_por)
+    VALUES (NEW.veiculo_id, v_status_antes, 'em_uso', NEW.usuario_id);
+
+    RETURN NEW;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.fn_fecha_diario()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+BEGIN
+    IF NEW.status = 'fechado' AND OLD.status = 'aberto' AND NEW.medidor_final IS NOT NULL THEN
+
+        NEW.medidor_percorrido = NEW.medidor_final - NEW.medidor_inicial;
+
+        UPDATE veiculos
+        SET medidor_atual  = NEW.medidor_final,
+            status         = 'disponivel',
+            atualizado_em  = NOW()
+        WHERE id = NEW.veiculo_id;
+
+        INSERT INTO veiculo_status_historico (veiculo_id, status_antes, status_depois, alterado_por)
+        VALUES (NEW.veiculo_id, 'em_uso', 'disponivel', NEW.usuario_id);
+
+    END IF;
+    RETURN NEW;
+END;
+$function$;
+*/

@@ -90,7 +90,7 @@ Depois PARE e espere "pode começar a parte 1".
 - AbastecimentoResponse: informar se foi abastecimento no comboio.
 - N+1: foto na tela de logs e peças/veículo na lista de manutenções. Resolver com JOIN ou busca em lote e mostrar no relatório a contagem de consultas antes e depois.
 - OPCIONAL (avaliar e propor): PUT /manutencoes/pecas/{pecaId} para editar peça (hoje só existe adicionar e remover).
-- OPCIONAL (decisão 19/10): rota para reativar veículo inativo (hoje DELETE só inativa e não há volta). A placa de veículo inativo continua liberada para novo cadastro.
+- OPCIONAL (decisão 19/10): rota para reativar veículo inativo (hoje DELETE só inativa e não há volta). (Rota feita.) A placa de veículo inativo NÃO fica liberada: decisão substituída em 19/10, ver "Decisões do coordenador".
 - Só acrescentar campos.
 
 ## PARTE 5 - Segurança: rotas atrás do JWT, bloqueios no servidor, CORS (itens 8, 9, 15 e 4) - FEITA em 19/10 (matriz APROVADA em 19/10, implementada atrás do interruptor DESLIGADO; ligar só quando o app mandar token em todas as chamadas)
@@ -136,6 +136,29 @@ Depois PARE e espere "pode começar a parte 1".
   c) Recusar ou sinalizar horário no futuro (com tolerância) e muito antigo.
   d) Recusar ou sinalizar evento fora da janela aberto_em..fechado_em do diário (abastecimento, ocorrência, rastreamento, checklist) e, para o diário, fora da janela do turno.
   e) Como sinalizar (ex.: coluna horario_suspeito / motivo) e onde o gestor vê isso.
+
+### Decisões do coordenador (19/10) - fonte: docs/RESPOSTAS-COORDENADOR-19-10.md
+- PASSO 1 (FEITO 19/10): vocabulário da OCORRÊNCIA = o do banco: pendente (nasce assim), em_andamento, resolvida. Manutenção continua aberta/em_andamento/concluida. "descartada" saiu. ?status= inválido -> 400 com codigo STATUS_INVALIDO. SQL: normalização + backfill ajustado + CHECK ck_ocorrencias_status (bloco "Ocorrências: vocabulário do banco"). Proibido SET DEFAULT 'aberta'.
+- PASSO 2 = Parte 6B: só começa quando o Yago mandar "pode começar a 6B". Respostas que valem para a 6B:
+  1. Horário no futuro: até 24 h só marca suspeito (HORARIO_FUTURO); acima de 24 h recusa 422 HORARIO_FUTURO. Mais de 7 dias: só marca.
+  2. Desvio do relógio: só marca (limite 5 min); não corrige.
+  3. Fora do período do diário: só marca (FORA_DA_JANELA_DIARIO). Recusa 409: evento para diário ASSINADO (DIARIO_ASSINADO) e fechar diário já fechado com outro idLocal (DIARIO_JA_FECHADO). Diário fechado não assinado ACEITA evento.
+  4. idLocal em turno (abrir/fechar), diário (abrir/fechar), abastecimento, ocorrência, rastreamento. Checklist sem idLocal: INSERT ... ON CONFLICT (diario_id, item_id) DO UPDATE ... WHERE EXCLUDED.registrado_em >= checklist_respostas.registrado_em (200); corrige o 500 de hoje no reenvio.
+  5. Corte de dia/mês em Brasília e datas com fuso: Parte 6C, depois da 6B. Lote de rastreamento: no máximo 200 pontos por chamada.
+  - SQL aprovado com ajustes: turnos também com horario_suspeito/motivo_suspeita; diarios_bordo com desvio_abertura_seg e desvio_fechamento_seg; rastreamento_gps mantém id_local; checklist_respostas só recebido_em. Topo do migracoes.sql: colunas timestamp without time zone guardam UTC por convenção (não mudar tipos na 6B).
+  - idLocal repetido: devolve o registro só se for do motorista do token; senão 409 ID_LOCAL_EM_USO.
+  - Placa: MANTER o índice veiculos_placa_key (inativo segura a placa). Mensagem: "Já existe um veículo inativo com esta placa. Reative-o em vez de cadastrar novo." Normalizar na API (cadastro e edição): maiúscula, sem hífen e espaço, vazio -> NULL. (Substitui a decisão da Parte 2 de liberar placa de inativo.)
+  - Perfil: leitura tolerante (valor desconhecido, ex.: administrador, não derruba GET /usuarios). Contagem do Yago (19/10): 5 motoristas, 2 gestores, nenhum administrador -> sem urgência e sem regra de permissão nova.
+  - Triggers: NÃO usar GREATEST. Corrigir DENTRO de fn_fecha_diario: medidor_atual só se for o fechamento mais recente por fechado_em do veículo (COALESCE(NEW.fechado_em, NOW())); status: em_manutencao se houver manutenção não concluída, inativo continua inativo, senão disponivel; histórico com status real e alterado_em = fechado_em. Mesmo cuidado em fn_abre_diario (alterado_em = aberto_em, status real de antes). Mostrar o texto exato no relatório e guardar o texto ORIGINAL (C4) como ROLLBACK. Yago só roda depois da revisão. Confirmar: recusa medidor_final < inicial, POST /diarios/{id}/fechar sempre manda medidor_final, API grava fechado_em = ocorridoEm.
+  - Comboio offline: resolver o diário pelo veículo + hora do evento (aberto_em <= ocorridoEm <= COALESCE(fechado_em, agora)), aceitando fechado não assinado; propor regra de ControleAcesso (dono do token não é dono do diário); avaliar coluna registrado_por (uuid, nula) em abastecimentos.
+  - Não usar as colunas "sincronizado" para idempotência. Enum resposta_checklist e status_veiculo 'manutencao': legado, não mexer.
+
+### Parte 6B - andamento
+- ETAPA 0 (FEITA 19/10): consultas que liam "a.*"/"cr.*" por posição (3 listas de abastecimento e as respostas do checklist) passaram a ter colunas explícitas; fechar diário deixou de forçar o veículo para disponivel (o trigger cuida). Precisa ir ao ar ANTES do SQL 1 da 6B: com o código antigo, colunas novas nessas tabelas quebrariam as telas.
+- SQL 1 (colunas e índices) e SQL 2 (triggers novos + rollback com o texto original) gravados em docs/migracoes.sql, comentados, para revisão. registrado_por em abastecimentos entra como PROPOSTA.
+- Ordem de deploy: (1) lote Passo 1 + etapa 0; (2) SQL 1; (3) código da 6B. SQL 2 independe do deploy, só depois da revisão do coordenador.
+- Código da 6B: retomar só quando o Yago disser "continue a 6B" (depois do deploy (1)).
+- Decisões 19/10 (coordenador): pausa, etapa 0 e ordem de deploy APROVADAS. registrado_por (uuid, nulo) em abastecimentos APROVADO: preencher com o usuário do token; antigos ficam nulos. /rastreamento/posicoes: ordenar pela hora do evento, SEM COALESCE, ignorando pontos com hora do evento mais de 5 min à frente do recebido_em (relógio adiantado não esconde a posição real). Arquivo para revisão: docs/para-revisao.txt.
 
 ### Parte 6B - PROPOSTA (19/10, aguardando as consultas C1-C6 de docs/migracoes.sql e as respostas do Yago)
 Nada foi implementado. Resumo do desenho (detalhes no relatório da conversa):

@@ -15,6 +15,7 @@ object CodigosErro {
     const val PIN_AUSENTE = "PIN_AUSENTE"
     const val DIARIO_PENDENTE_ASSINATURA = "DIARIO_PENDENTE_ASSINATURA"
     const val TURNO_COM_DIARIO_ABERTO = "TURNO_COM_DIARIO_ABERTO"
+    const val STATUS_INVALIDO = "STATUS_INVALIDO"
 }
 
 class NaoEncontradoException(mensagem: String) : ApiException(HttpStatus.NOT_FOUND, mensagem)

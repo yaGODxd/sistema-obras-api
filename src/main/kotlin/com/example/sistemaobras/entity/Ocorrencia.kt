@@ -5,6 +5,13 @@ import java.math.BigDecimal
 import java.time.LocalDateTime
 import java.util.UUID
 
+object StatusOcorrencia {
+    const val PENDENTE = "pendente"
+    const val EM_ANDAMENTO = "em_andamento"
+    const val RESOLVIDA = "resolvida"
+    val TODOS = setOf(PENDENTE, EM_ANDAMENTO, RESOLVIDA)
+}
+
 @Entity
 @Table(name = "ocorrencias")
 data class Ocorrencia(
@@ -30,9 +37,10 @@ data class Ocorrencia(
     @Column(name = "registrado_em", nullable = false)
     val registradoEm: LocalDateTime = LocalDateTime.now(java.time.ZoneOffset.UTC),
 
-    // Texto (não enum do Postgres): aberta, em_andamento, concluida, descartada.
+    // Coluna varchar com o vocabulário do enum status_ocorrencia do banco:
+    // pendente (nasce assim, igual ao default do banco), em_andamento, resolvida.
     @Column(name = "status", nullable = false)
-    val status: String = "aberta",
+    val status: String = StatusOcorrencia.PENDENTE,
 
     @Column(name = "resolvida_em")
     val resolvidaEm: LocalDateTime? = null

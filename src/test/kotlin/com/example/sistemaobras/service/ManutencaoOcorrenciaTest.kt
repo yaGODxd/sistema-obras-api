@@ -6,6 +6,7 @@ import com.example.sistemaobras.entity.Manutencao
 import com.example.sistemaobras.entity.Ocorrencia
 import com.example.sistemaobras.entity.Veiculo
 import com.example.sistemaobras.exception.NaoEncontradoException
+import com.example.sistemaobras.exception.RegraNegocioException
 import com.example.sistemaobras.repository.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -65,7 +66,7 @@ class ManutencaoOcorrenciaTest {
     private fun ocorrenciaCom(status: String) {
         given(ocorrenciaRepository.findById(ocorrenciaId)).willReturn(Optional.of(
             Ocorrencia(id = ocorrenciaId, diarioId = UUID.randomUUID(), tipo = "freio", descricao = "barulho", status = status,
-                resolvidaEm = if (status == "concluida") LocalDateTime.now() else null)
+                resolvidaEm = if (status == "resolvida") LocalDateTime.now() else null)
         ))
     }
 
@@ -92,7 +93,7 @@ class ManutencaoOcorrenciaTest {
         concluir(m1)
 
         val ocorrencia = ocorrenciaGravada()
-        assertEquals("concluida", ocorrencia.status)
+        assertEquals("resolvida", ocorrencia.status)
         assertNotNull(ocorrencia.resolvidaEm)
         verify(veiculoRepository).atualizarStatus(veiculoId.toString(), "disponivel")
     }
@@ -108,12 +109,12 @@ class ManutencaoOcorrenciaTest {
 
         existentes(manutencao(m1, "concluida"), manutencao(m2, "em_andamento"))
         concluir(m2)
-        assertEquals("concluida", ocorrenciaGravada().status)
+        assertEquals("resolvida", ocorrenciaGravada().status)
     }
 
     @Test
     fun `reabrir a manutencao volta a ocorrencia para em_andamento`() {
-        ocorrenciaCom("concluida")
+        ocorrenciaCom("resolvida")
         existentes(manutencao(m1, "concluida"))
 
         service.atualizarStatus(m1.toString(), AtualizarStatusRequest(status = "aberta"))
@@ -142,7 +143,7 @@ class ManutencaoOcorrenciaTest {
 
     @Test
     fun `abrir manutencao vinculada deixa a ocorrencia em_andamento`() {
-        ocorrenciaCom("aberta")
+        ocorrenciaCom("pendente")
         existentes()
         service.abrir(ManutencaoRequest(veiculoId = veiculoId.toString(), ocorrenciaId = ocorrenciaId.toString(), tipo = "corretiva", descricao = "Freio"))
         assertEquals("em_andamento", ocorrenciaGravada().status)
@@ -158,14 +159,27 @@ class ManutencaoOcorrenciaTest {
     }
 
     @Test
-    fun `gestor descarta a ocorrencia a mao e fica registrado no log`() {
-        ocorrenciaCom("aberta")
-        val resposta = ocorrenciaService.atualizarStatus(ocorrenciaId.toString(), "descartada")
-        assertEquals("descartada", resposta.status)
+    fun `gestor resolve a ocorrencia a mao e fica registrado no log`() {
+        ocorrenciaCom("pendente")
+        val resposta = ocorrenciaService.atualizarStatus(ocorrenciaId.toString(), "resolvida")
+        assertEquals("resolvida", resposta.status)
         assertNotNull(resposta.resolvidaEm)
         verify(logService).registrar(
             "sistema", null, "OCORRENCIA_STATUS",
-            "Ocorrência $ocorrenciaId passou de 'aberta' para 'descartada' manualmente", null
+            "Ocorrência $ocorrenciaId passou de 'pendente' para 'resolvida' manualmente", null
         )
+    }
+
+    @Test
+    fun `filtro de status aceita so o vocabulario da ocorrencia`() {
+        given(ocorrenciaRepository.findByStatusOrderByRegistradoEmDesc("pendente")).willReturn(emptyList())
+        assertEquals(0, ocorrenciaService.listarTodas("pendente").size)
+        val erro = assertFailsWith<RegraNegocioException> { ocorrenciaService.listarTodas("aberta") }
+        assertEquals("STATUS_INVALIDO", erro.codigo)
+    }
+
+    @Test
+    fun `ocorrencia nova nasce pendente como o default do banco`() {
+        assertEquals("pendente", Ocorrencia().status)
     }
 }

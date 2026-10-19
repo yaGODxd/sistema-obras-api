@@ -10,7 +10,9 @@ import java.util.UUID
 interface ChecklistRespostaRepository : JpaRepository<ChecklistResposta, UUID> {
 
     @Query(value = """
-        SELECT cr.*, ci.descricao, ci.obrigatorio, ci.ordem
+        -- Colunas explícitas (lidas por posição no ChecklistController). Não usar cr.*.
+        SELECT cr.id, cr.diario_id, cr.item_id, cr.observacao, cr.ok, cr.registrado_em,
+               ci.descricao, ci.obrigatorio, ci.ordem
         FROM checklist_respostas cr
         INNER JOIN checklist_itens ci ON ci.id = cr.item_id
         WHERE cr.diario_id = CAST(:diarioId AS uuid)

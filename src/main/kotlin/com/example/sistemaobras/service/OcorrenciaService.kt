@@ -1,5 +1,6 @@
 package com.example.sistemaobras.service
 
+import com.example.sistemaobras.exception.CodigosErro
 import com.example.sistemaobras.exception.NaoEncontradoException
 import com.example.sistemaobras.exception.RegraNegocioException
 import com.example.sistemaobras.dto.ManutencaoVinculadaResponse
@@ -8,6 +9,7 @@ import com.example.sistemaobras.dto.OcorrenciaRequest
 import com.example.sistemaobras.dto.OcorrenciaResponse
 import com.example.sistemaobras.entity.Manutencao
 import com.example.sistemaobras.entity.Ocorrencia
+import com.example.sistemaobras.entity.StatusOcorrencia
 import com.example.sistemaobras.repository.DiarioBordoRepository
 import com.example.sistemaobras.repository.ManutencaoRepository
 import com.example.sistemaobras.repository.OcorrenciaRepository
@@ -76,19 +78,21 @@ class OcorrenciaService(
     /**
      * Recalcula o status da ocorrência a partir das manutenções ligadas a ela.
      * `atual` é a manutenção que acabou de ser criada ou alterada (já com o novo status).
-     * Todas concluídas -> concluida; senão -> em_andamento. Roda na transação de quem chamou.
+     * Todas as manutenções concluídas -> ocorrência resolvida; senão -> em_andamento.
+     * (Manutenção usa aberta/em_andamento/concluida; ocorrência usa pendente/em_andamento/resolvida.)
+     * Roda na transação de quem chamou.
      */
     fun atualizarPelaManutencao(atual: Manutencao) {
         val ocorrenciaId = atual.ocorrenciaId ?: return
         val ocorrencia = buscar(ocorrenciaId)
         val vinculadas = manutencaoRepository.findByOcorrenciaId(ocorrenciaId).filter { it.id != atual.id } + atual
-        val novoStatus = if (vinculadas.all { it.status == "concluida" }) "concluida" else "em_andamento"
+        val novoStatus = if (vinculadas.all { it.status == "concluida" }) StatusOcorrencia.RESOLVIDA else StatusOcorrencia.EM_ANDAMENTO
         mudarStatus(ocorrencia, novoStatus, "pela manutenção ${atual.id}")
     }
 
     private fun mudarStatus(ocorrencia: Ocorrencia, novoStatus: String, motivo: String): Ocorrencia {
         if (ocorrencia.status == novoStatus) return ocorrencia
-        val resolvida = novoStatus == "concluida" || novoStatus == "descartada"
+        val resolvida = novoStatus == StatusOcorrencia.RESOLVIDA
         val atualizada = ocorrenciaRepository.save(ocorrencia.copy(
             status = novoStatus,
             resolvidaEm = if (resolvida) LocalDateTime.now(ZoneOffset.UTC) else null
@@ -120,6 +124,8 @@ class OcorrenciaService(
     }
 
     fun listarTodas(status: String? = null): List<OcorrenciaDetalhadaResponse> {
+        if (!status.isNullOrBlank() && status !in StatusOcorrencia.TODOS)
+            throw RegraNegocioException("Status inválido. Use pendente, em_andamento ou resolvida.", CodigosErro.STATUS_INVALIDO)
         val ocorrencias = if (status.isNullOrBlank())
             ocorrenciaRepository.findAll().sortedByDescending { it.registradoEm }
         else

@@ -14,7 +14,7 @@ O trabalho segue `docs/PLANO-API.md` (releia após compactar o contexto). Pendê
 - Segurança: matriz rota x perfil em `SecurityConfig.matrizDePermissoes` (só vale com `APP_SEGURANCA_EXIGIR_JWT=true`). Rota nova precisa entrar na matriz. Em rotas com `{login}` chame `ControleAcesso.conferirProprioLogin(login)`; em corpos com `loginMotorista` use `ControleAcesso.loginEfetivo(...)`.
 - Rotas novas não usam `@StatusErroFixo`; id inválido com `uuidValido(...)` (400).
 - Erro que o app precisa tratar de forma especial: `RegraNegocioException(msg, CodigosErro.X)` → corpo `{"erro", "codigo"}`. Nunca renomear um código existente.
-- Ocorrência: status texto (aberta, em_andamento, concluida, descartada). Quem muda manutenção chama `ocorrenciaService.atualizarPelaManutencao(...)`.
+- Ocorrência: status varchar com o vocabulário do banco (`StatusOcorrencia`: pendente, em_andamento, resolvida). Manutenção é outro vocabulário (aberta, em_andamento, concluida). Nunca SET DEFAULT 'aberta'. Quem muda manutenção chama `ocorrenciaService.atualizarPelaManutencao(...)`.
 - Validação de entrada: anotações `@field:` nos DTOs com textos de `MensagensValidacao` e `@Valid` no `@RequestBody`. Não validar `LoginRequest` (mudaria o 401 do login para 400).
 - Banco: esquema manual (`ddl-auto` padrão `none`). Mudança de banco = SQL idempotente em `docs/migracoes.sql`, rodado pelo Yago antes do deploy.
 - Compatibilidade: só acrescentar campos; não mudar status de sucesso.

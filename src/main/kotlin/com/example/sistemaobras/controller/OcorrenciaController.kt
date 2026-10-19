@@ -45,7 +45,7 @@ class OcorrenciaController(
         return ResponseEntity.ok(ocorrenciaService.listarPorMotorista(login))
     }
 
-    // ?status=aberta (opcional) filtra a lista.
+    // ?status=pendente|em_andamento|resolvida (opcional) filtra a lista; outro valor -> 400 STATUS_INVALIDO.
     @GetMapping
     fun listarTodas(@RequestParam(required = false) status: String?): ResponseEntity<List<OcorrenciaDetalhadaResponse>> {
         return ResponseEntity.ok(ocorrenciaService.listarTodas(status))

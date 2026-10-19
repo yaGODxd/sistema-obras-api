@@ -17,7 +17,7 @@ data class OcorrenciaDetalhadaResponse(
     val veiculoId: UUID?,
     val veiculoDescricao: String,
     val veiculoPlaca: String?,
-    val status: String = "aberta",
+    val status: String = "pendente",
     val resolvidaEm: LocalDateTime? = null,
     val manutencoes: List<ManutencaoVinculadaResponse> = emptyList()
 )

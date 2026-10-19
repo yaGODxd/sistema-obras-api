@@ -68,8 +68,11 @@ interface AbastecimentoRepository : JpaRepository<Abastecimento, UUID> {
 
     @Query(
         value = """
-        SELECT 
-            a.*,
+        SELECT
+            -- Colunas explícitas (índices 0-8 lidos por posição no AbastecimentoService).
+            -- Não usar a.* (coluna nova na tabela deslocaria os índices).
+            a.id, a.diario_id, a.tipo_combustivel, a.litros, a.valor_total, a.posto,
+            a.sincronizado, a.registrado_em, a.veiculo_abastecido_id,
             v.id as veiculo_id,
             v.descricao as veiculo_descricao,
             v.placa as veiculo_placa,
@@ -89,8 +92,11 @@ interface AbastecimentoRepository : JpaRepository<Abastecimento, UUID> {
 
     @Query(
         value = """
-        SELECT 
-            a.*,
+        SELECT
+            -- Colunas explícitas (índices 0-8 lidos por posição no AbastecimentoService).
+            -- Não usar a.* (coluna nova na tabela deslocaria os índices).
+            a.id, a.diario_id, a.tipo_combustivel, a.litros, a.valor_total, a.posto,
+            a.sincronizado, a.registrado_em, a.veiculo_abastecido_id,
             v.id as veiculo_id,
             v.descricao as veiculo_descricao,
             v.placa as veiculo_placa,
@@ -114,8 +120,11 @@ interface AbastecimentoRepository : JpaRepository<Abastecimento, UUID> {
 
     @Query(
         value = """
-        SELECT 
-            a.*,
+        SELECT
+            -- Colunas explícitas (índices 0-8 lidos por posição no AbastecimentoService).
+            -- Não usar a.* (coluna nova na tabela deslocaria os índices).
+            a.id, a.diario_id, a.tipo_combustivel, a.litros, a.valor_total, a.posto,
+            a.sincronizado, a.registrado_em, a.veiculo_abastecido_id,
             v.id as veiculo_id,
             v.descricao as veiculo_descricao,
             v.placa as veiculo_placa,

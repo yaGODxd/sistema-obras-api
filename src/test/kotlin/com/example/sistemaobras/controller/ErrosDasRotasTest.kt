@@ -301,24 +301,31 @@ class ErrosDasRotasTest {
 
     @Test
     fun `status da ocorrencia a mao`() {
-        json(put("/ocorrencias/$uuid/status"), """{"status":"resolvida"}""")
-            .andExpect(status().isBadRequest)
-            .andExpect(jsonPath("$.erro").value("Campo 'status' deve ser aberta, em_andamento, concluida ou descartada."))
-
-        given(ocorrenciaService.atualizarStatus(uuid, "concluida")).willThrow(NaoEncontradoException("Ocorrência não encontrada."))
+        // "concluida" é da manutenção; na ocorrência é "resolvida".
         json(put("/ocorrencias/$uuid/status"), """{"status":"concluida"}""")
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.erro").value("Campo 'status' deve ser pendente, em_andamento ou resolvida."))
+
+        given(ocorrenciaService.atualizarStatus(uuid, "resolvida")).willThrow(NaoEncontradoException("Ocorrência não encontrada."))
+        json(put("/ocorrencias/$uuid/status"), """{"status":"resolvida"}""")
             .andExpect(status().isNotFound)
             .andExpect(jsonPath("$.erro").value("Ocorrência não encontrada."))
 
-        json(put("/ocorrencias/$uuid/status"), """{"status":"descartada"}""")
+        json(put("/ocorrencias/$uuid/status"), """{"status":"pendente"}""")
             .andExpect(status().isOk)
     }
 
     @Test
     fun `lista de ocorrencias aceita filtro de status`() {
-        mockMvc.perform(get("/ocorrencias").param("status", "aberta"))
+        mockMvc.perform(get("/ocorrencias").param("status", "pendente"))
             .andExpect(status().isOk)
-        Mockito.verify(ocorrenciaService).listarTodas("aberta")
+        Mockito.verify(ocorrenciaService).listarTodas("pendente")
+
+        given(ocorrenciaService.listarTodas("aberta")).willThrow(
+            RegraNegocioException("Status inválido. Use pendente, em_andamento ou resolvida.", CodigosErro.STATUS_INVALIDO))
+        mockMvc.perform(get("/ocorrencias").param("status", "aberta"))
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.codigo").value("STATUS_INVALIDO"))
     }
 
     // ---------- Parte 4 ----------

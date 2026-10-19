@@ -105,8 +105,9 @@ class DiarioBordoService(
             observacao = request.observacaoFechamento
         )
 
-        // Devolve o veículo para disponivel ao fechar o diário
-        veiculoRepository.atualizarStatus(diario.veiculoId.toString(), "disponivel")
+        // O status do veículo (e o medidor_atual) é atualizado pelo trigger fn_fecha_diario
+        // no próprio UPDATE. Não sobrescrever aqui: a versão nova do trigger (Parte 6B)
+        // deixa em_manutencao quando há manutenção aberta.
 
         val percorrido = request.medidorFinal - diario.medidorInicial.toDouble()
 
