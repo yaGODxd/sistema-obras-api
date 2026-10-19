@@ -225,4 +225,17 @@ interface DiarioBordoRepository : JpaRepository<DiarioBordo, UUID> {
     fun temDiarioAbertoPorVeiculo(
         @org.springframework.data.repository.query.Param("veiculoId") veiculoId: String
     ): Long
+
+    // Diários fechados aguardando a assinatura do motorista.
+    @Query(
+        value = """
+        SELECT COUNT(*) FROM diarios_bordo d
+        INNER JOIN usuarios u ON u.id = d.usuario_id
+        WHERE u.login = :login AND d.status = 'fechado'
+    """,
+        nativeQuery = true
+    )
+    fun contarPendentesDeAssinatura(
+        @org.springframework.data.repository.query.Param("login") login: String
+    ): Long
 }

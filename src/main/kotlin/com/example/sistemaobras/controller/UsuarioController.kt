@@ -9,6 +9,7 @@ import com.example.sistemaobras.dto.UsuarioResponse
 import com.example.sistemaobras.exception.StatusErroFixo
 import com.example.sistemaobras.repository.UsuarioRepository
 import com.example.sistemaobras.service.UsuarioService
+import com.example.sistemaobras.security.ControleAcesso
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 
@@ -21,6 +22,7 @@ class UsuarioController(
     @GetMapping("/{login}")
     @StatusErroFixo(404)
     fun buscarPerfil(@PathVariable login: String): ResponseEntity<UsuarioResponse> {
+        ControleAcesso.conferirProprioLogin(login)
         return ResponseEntity.ok(usuarioService.buscarPerfil(login))
     }
 
@@ -35,6 +37,7 @@ class UsuarioController(
         @PathVariable login: String,
         @Valid @RequestBody request: AtualizarPerfilRequest
     ): ResponseEntity<UsuarioResponse> {
+        ControleAcesso.conferirProprioLogin(login)
         return ResponseEntity.ok(usuarioService.atualizarPerfil(login, request))
     }
 
@@ -64,6 +67,7 @@ class UsuarioController(
 
     @GetMapping("/{login}/resumo-semanal")
     fun resumoSemanal(@PathVariable login: String): ResponseEntity<ResumoSemanalResponse> {
+        ControleAcesso.conferirProprioLogin(login)
         return try {
             val rows = usuarioRepository.findResumoSemanal(login)
             println("RESUMO ROWS size: ${rows.size}")

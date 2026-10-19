@@ -5,6 +5,7 @@ import com.example.sistemaobras.dto.RastreamentoResponse
 import com.example.sistemaobras.dto.UltimaPosicaoResponse
 import com.example.sistemaobras.exception.StatusErroFixo
 import com.example.sistemaobras.service.RastreamentoService
+import com.example.sistemaobras.security.ControleAcesso
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 
@@ -17,7 +18,7 @@ class RastreamentoController(
     @PostMapping
     @StatusErroFixo(400)
     fun registrarPonto(@RequestBody request: RastreamentoRequest): ResponseEntity<Void> {
-        rastreamentoService.registrarPonto(request)
+        rastreamentoService.registrarPonto(request.copy(loginMotorista = ControleAcesso.loginEfetivo(request.loginMotorista)))
         return ResponseEntity.ok().build()
     }
 

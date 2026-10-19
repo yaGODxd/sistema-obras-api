@@ -6,6 +6,7 @@ import com.example.sistemaobras.dto.AbastecimentoRequest
 import com.example.sistemaobras.dto.AbastecimentoResponse
 import com.example.sistemaobras.exception.StatusErroFixo
 import com.example.sistemaobras.service.AbastecimentoService
+import com.example.sistemaobras.security.ControleAcesso
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 
@@ -18,7 +19,7 @@ class AbastecimentoController(
     @PostMapping
     @StatusErroFixo(400)
     fun registrar(@Valid @RequestBody request: AbastecimentoRequest): ResponseEntity<AbastecimentoResponse> {
-        return ResponseEntity.ok(abastecimentoService.registrar(request))
+        return ResponseEntity.ok(abastecimentoService.registrar(request.copy(loginMotorista = ControleAcesso.loginEfetivo(request.loginMotorista))))
     }
 
     @GetMapping("/diario/{diarioId}")
@@ -28,6 +29,7 @@ class AbastecimentoController(
 
     @GetMapping("/aberto/{login}")
     fun listarDiarioAberto(@PathVariable login: String): ResponseEntity<List<AbastecimentoResponse>> {
+        ControleAcesso.conferirProprioLogin(login)
         return ResponseEntity.ok(abastecimentoService.listarDiarioAberto(login))
     }
 
@@ -38,6 +40,7 @@ class AbastecimentoController(
 
     @GetMapping("/motorista/{login}")
     fun listarPorMotorista(@PathVariable login: String): ResponseEntity<List<AbastecimentoDetalhadoResponse>> {
+        ControleAcesso.conferirProprioLogin(login)
         return ResponseEntity.ok(abastecimentoService.listarPorMotorista(login))
     }
 

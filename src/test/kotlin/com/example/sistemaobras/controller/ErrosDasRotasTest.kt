@@ -1,5 +1,6 @@
 package com.example.sistemaobras.controller
 
+import com.example.sistemaobras.exception.CodigosErro
 import com.example.sistemaobras.exception.ConflitoException
 import com.example.sistemaobras.exception.NaoAutorizadoException
 import com.example.sistemaobras.exception.NaoEncontradoException
@@ -344,6 +345,32 @@ class ErrosDasRotasTest {
     fun `edicao de veiculo sem tipoId e aceita`() {
         json(put("/veiculos/$uuid"), """{"descricao":"Caminhão"}""")
             .andExpect(status().isOk)
+    }
+
+    // ---------- Códigos de erro (bloqueios da Parte 5) ----------
+
+    @Test
+    fun `bloqueios trazem codigo alem de erro e mantem o status 400`() {
+        given(diarioBordoService.abrirDiario(qualquer())).willThrow(
+            RegraNegocioException("Cadastre seu PIN de assinatura antes de abrir um diário.", CodigosErro.PIN_AUSENTE))
+        json(post("/diarios/abrir"), """{"loginMotorista":"m","veiculoId":"$uuid","medidorInicial":100}""")
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.erro").value("Cadastre seu PIN de assinatura antes de abrir um diário."))
+            .andExpect(jsonPath("$.codigo").value("PIN_AUSENTE"))
+
+        given(turnoService.fecharTurno("m")).willThrow(
+            RegraNegocioException("Você tem um diário aberto. Feche o diário antes de sair de serviço.", CodigosErro.TURNO_COM_DIARIO_ABERTO))
+        json(post("/turnos/fechar"), """{"login":"m"}""")
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.codigo").value("TURNO_COM_DIARIO_ABERTO"))
+    }
+
+    @Test
+    fun `erro sem codigo nao ganha o campo`() {
+        given(turnoService.abrirTurno("m")).willThrow(RegraNegocioException("Já existe um turno aberto para este usuário."))
+        json(post("/turnos/abrir"), """{"login":"m"}""")
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.codigo").doesNotExist())
     }
 
     @Test

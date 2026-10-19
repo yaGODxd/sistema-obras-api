@@ -1,6 +1,8 @@
 package com.example.sistemaobras.service
 
+import com.example.sistemaobras.exception.ConflitoException
 import com.example.sistemaobras.exception.NaoEncontradoException
+import com.example.sistemaobras.exception.uuidValido
 import com.example.sistemaobras.dto.*
 import com.example.sistemaobras.entity.Manutencao
 import com.example.sistemaobras.entity.ManutencaoPeca
@@ -159,6 +161,25 @@ class ManutencaoService(
             valorUnitario = BigDecimal.valueOf(request.valorUnitario)
         ))
         return toPecaResponse(peca)
+    }
+
+    // PUT /manutencoes/pecas/{pecaId} (rota nova): 400 dado/id inválido, 404 peça não
+    // existe, 409 manutenção já concluída.
+    @Transactional
+    fun atualizarPeca(pecaId: String, request: PecaRequest): PecaResponse {
+        val peca = manutencaoPecaRepository.findById(uuidValido(pecaId))
+            .orElseThrow { NaoEncontradoException("Peça não encontrada.") }
+        val manutencao = manutencaoRepository.findById(peca.manutencaoId!!).orElse(null)
+        if (manutencao?.status == "concluida")
+            throw ConflitoException("Não é possível alterar peça de manutenção concluída.")
+        val atualizada = manutencaoPecaRepository.save(peca.copy(
+            nomePeca = request.nomePeca,
+            codigoPeca = request.codigoPeca,
+            marcaPeca = request.marcaPeca,
+            quantidade = request.quantidade,
+            valorUnitario = BigDecimal.valueOf(request.valorUnitario)
+        ))
+        return toPecaResponse(atualizada)
     }
 
     fun removerPeca(pecaId: String) {

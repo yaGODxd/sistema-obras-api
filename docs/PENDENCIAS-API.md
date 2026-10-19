@@ -61,6 +61,7 @@ Regra de deploy: o Dockerfile faz COPY build/libs/*.jar. Depois de mudar o códi
    - ACHADO 19/10 (decidir): usuarios.foto_perfil é varchar(255), mas a foto é base64 (muito maior). A API NÃO limita a foto (decisão de não reduzir foto). Diagnóstico e ALTER sugerido (comentados) no bloco 5 de docs/migracoes.sql.
 
 4. CORS
+   - FEITO (Parte 5, 19/10): origens por APP_CORS_ORIGENS (vírgula); sem a variável continua "*". Authorization já liberado (allowedHeaders "*").
    - Pendência registrada na Parte 2 do front. Recuperar o texto exato no relatório do Claude Code e conferir se Authorization está em allowedHeaders.
 
 5. Fuso do corte de dia e de mês
@@ -74,17 +75,20 @@ Regra de deploy: o Dockerfile faz COPY build/libs/*.jar. Depois de mudar o códi
    - Se o tamanho da resposta passar de 1 a 2 MB, tirar a foto da lista e servir por rota separada com cache.
 
 8. Fechar rotas antigas atrás do JWT (RNF10)
+   - FEITO (Parte 5, 19/10): matriz rota x perfil na SecurityConfig, ligada por APP_SEGURANCA_EXIGIR_JWT=true (padrão false = comportamento antigo). Motorista só acessa os próprios dados (ControleAcesso); com token de motorista, o loginMotorista do corpo é trocado pelo do token. Ligar só depois de conferir que o app manda o token em TODAS as chamadas.
+   - MATRIZ APROVADA (19/10): mecânicos e POST /auth/cadastrar só gestor. Dono do diário nas rotas por id de diário (abastecimentos/ocorrências/rastreamento por diário e checklist/respostas) fica para a 6B.
    - O front já envia Bearer. Hoje /auth/**, /usuarios/**, /turnos/**, /veiculos/**, /diarios/**, /rastreamento/**, /abastecimentos/**, /ocorrencias/**, /manutencoes/**, /logs/**, /secretarias/**, /mecanicos/**, /postos/**, /checklist/** estão permitAll.
    - Manter público só /auth/login (e /error). Definir quais rotas são só de gestor e quais de motorista (ROLE_GESTOR / ROLE_MOTORISTA).
    - Antes de fechar, conferir que o app Android também manda o token em todas as chamadas.
 
 9. Bloqueios no servidor
+   - FEITO (Parte 5, 19/10): abrir diário recusa sem PIN e com diário fechado pendente de assinatura. Interruptor APP_BLOQUEIOS_DIARIO (padrão ligado; false desliga este bloqueio e o do item 15). Corpo do erro com "codigo": PIN_AUSENTE ou DIARIO_PENDENTE_ASSINATURA. Rodar antes o diagnóstico do bloco "Parte 5" de docs/migracoes.sql (diários antigos pendentes podem travar motoristas).
    - Recusar abrir diário se o motorista tem diário "fechado" sem assinar, ou se não tem PIN cadastrado. Hoje só o app impede.
 
 10. VeiculoResponse e edição
 - FEITO (Parte 4, 19/10, falta deploy): tipoId, tipoNome e tipoMedidor reais nas listas (tipos numa consulta só); tipoId opcional no PUT (continua ignorado), obrigatório no POST (400 "Campo 'tipoId' é obrigatório."). Conferir no front quem dependia de tipoNome vazio.
 - Incluir tipoId na resposta. Tornar tipoId opcional na edição (o UPDATE já o ignora).
-- OPCIONAL (Parte 4, decisão 19/10): rota para reativar veículo inativo (DELETE só inativa e não há volta pela API).
+- FEITO (19/10, aprovado): PUT /veiculos/{id}/ativo ({"ativo": true|false}); reativar volta como disponivel e é recusado (400) se outro veículo ativo usa a mesma placa.
 - Status de veículo conhecidos: disponivel, em_uso, em_manutencao, inativo (DELETE só marca inativo).
 - Achado 19/10: VeiculoService.toResponse devolve tipoNome = "" e tipoMedidor = "" fixos nas listas de veículos (só a listagem de veículos em uso traz o tipoNome). Devolver os valores reais (JOIN com tipo_veiculo) e conferir no front quem depende disso.
 
@@ -120,6 +124,7 @@ Regra de deploy: o Dockerfile faz COPY build/libs/*.jar. Depois de mudar o códi
 - O Jackson ignora campos desconhecidos: o app novo mandando foto para a API antiga NÃO dá erro e a foto se perde em silêncio. Por isso o app só liga as fotos depois da API pronta.
 
 15. Turnos
+- FEITO (Parte 5, 19/10): POST /turnos/fechar recusa só com diário aberto (400, mensagem combinada). Desliga com APP_BLOQUEIOS_DIARIO=false. Corpo do erro com "codigo": TURNO_COM_DIARIO_ABERTO.
 - POST /turnos/fechar só valida "existe turno aberto". Decidir se o servidor deve recusar sair de serviço com diário aberto (hoje só o app bloquearia).
 - DECIDIDO 19/10 (Parte 5): recusar SOMENTE se existir diário com status aberto, com {"erro": "Você tem um diário aberto. Feche o diário antes de sair de serviço."} e o mesmo status de erro que a rota usa hoje (400). Diário fechado pendente de assinatura NÃO impede sair de serviço (o bloqueio dele é ao abrir o próximo).
 
@@ -171,9 +176,20 @@ Regra de deploy: o Dockerfile faz COPY build/libs/*.jar. Depois de mudar o códi
 - Correção: ao concluir, só voltar para `disponivel` se NÃO existir outra manutenção do veículo com status diferente de concluida (e tratar o caso do veículo estar com diário aberto -> em_uso). Fazer junto com o item 18 (mesma função, mesma transação).
 
 20. Peça de manutenção sem edição (achado 19/10)
+- FEITO (19/10, aprovado): PUT /manutencoes/pecas/{pecaId}; 400 dado/id inválido, 404 peça não existe, 409 manutenção concluída.
 - PROPOSTA (Parte 4, aguardando OK): PUT /manutencoes/pecas/{pecaId}, ver relatório da Parte 4.
 - Hoje só existem POST /manutencoes/{id}/pecas e DELETE /manutencoes/pecas/{pecaId}; não há como corrigir uma peça sem apagar e lançar de novo.
 - Avaliar na Parte 4, como item opcional: PUT /manutencoes/pecas/{pecaId}.
+
+21. Achados das consultas C1-C6 (19/10, Parte 6B)
+- Ocorrências: a coluna ocorrencias.status JÁ EXISTIA (varchar com default 'pendente'::status_ocorrencia; enum status_ocorrencia = pendente, em_andamento, resolvida). O ALTER da Parte 3 (ADD COLUMN IF NOT EXISTS) não fez nada nessa coluna. Ocorrências antigas devem estar como 'pendente' (e talvez 'resolvida'), valores que a API não usa. Precisa de SQL: default 'aberta' e conversão pendente->aberta, resolvida->concluida (texto exato a aprovar).
+- Placa: já existe o índice único veiculos_placa_key (placa exata, inclui veículos inativos). A decisão da Parte 2 de liberar a placa de veículo inativo não vale no banco: o cadastro com a mesma placa exata cai no índice (400 "Já existe um veículo com esta placa."). E "ABC-1D23" x "ABC1D23" passam no banco (a API barra).
+- Perfil: o enum perfil_usuario tem 'administrador', mas o código só conhece gestor e motorista. Um usuário administrador quebra o carregamento (ex.: GET /usuarios) e não tem acesso nenhum com a matriz ligada.
+- Triggers: fn_abre_diario (veículo em_uso + histórico) e fn_fecha_diario (calcula medidor_percorrido, grava veiculos.medidor_atual = medidor_final, veículo disponivel + histórico). O fechamento devolve o veículo para disponivel mesmo com manutenção aberta (mesmo problema do item 19). Com fila offline, um fechamento antigo chegando depois pode fazer o medidor_atual voltar para trás.
+- Enum status_veiculo tem 'manutencao' e 'em_manutencao' (o código usa em_manutencao).
+- checklist_respostas tem índice único (diario_id, item_id): reenviar o checklist hoje dá erro (500).
+- Colunas de horário são todas "timestamp without time zone" (PASSO 0 da 6A ok para abastecimentos e ocorrências).
+- Existem tabelas fotos (tipo_foto: medidor_abertura, medidor_fechamento, ocorrencia, livre) e cnh, sem uso pela API (item 14).
 
 ## Outras pendências do projeto (fora da API)
 - Front: Partes 6, 7 e 8 do plano; escolher a paleta (A Petróleo, B Musgo ou C Grafite); ligar validarDigitosCpf antes de usar de verdade.

@@ -8,6 +8,7 @@ import com.example.sistemaobras.dto.DiarioResumoMensalResponse
 import com.example.sistemaobras.dto.FecharDiarioRequest
 import com.example.sistemaobras.exception.StatusErroFixo
 import com.example.sistemaobras.service.DiarioBordoService
+import com.example.sistemaobras.security.ControleAcesso
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 
@@ -20,7 +21,7 @@ class DiarioBordoController(
     @PostMapping("/abrir")
     @StatusErroFixo(400)
     fun abrirDiario(@Valid @RequestBody request: AbrirDiarioRequest): ResponseEntity<DiarioResponse> {
-        return ResponseEntity.ok(diarioService.abrirDiario(request))
+        return ResponseEntity.ok(diarioService.abrirDiario(request.copy(loginMotorista = ControleAcesso.loginEfetivo(request.loginMotorista))))
     }
 
     @PostMapping("/fechar/{login}")
@@ -29,11 +30,13 @@ class DiarioBordoController(
         @PathVariable login: String,
         @Valid @RequestBody request: FecharDiarioRequest
     ): ResponseEntity<DiarioResponse> {
+        ControleAcesso.conferirProprioLogin(login)
         return ResponseEntity.ok(diarioService.fecharDiario(login, request))
     }
 
     @GetMapping("/aberto/{login}")
     fun buscarDiarioAberto(@PathVariable login: String): ResponseEntity<DiarioResponse> {
+        ControleAcesso.conferirProprioLogin(login)
         val diario = diarioService.buscarDiarioAberto(login)
         return if (diario != null) ResponseEntity.ok(diario)
         else ResponseEntity.status(404).build()
@@ -51,7 +54,10 @@ class DiarioBordoController(
     // Detalhe de um diário (modal do front). Rota nova: 400 id inválido, 404 não encontrado.
     @GetMapping("/{id}")
     fun buscarDetalhe(@PathVariable id: String): ResponseEntity<DiarioDetalheResponse> {
-        return ResponseEntity.ok(diarioService.buscarDetalhe(id))
+        val diario = diarioService.buscarDetalhe(id)
+        // Motorista só vê o próprio diário.
+        diario.motoristaLogin?.let { ControleAcesso.conferirProprioLogin(it) }
+        return ResponseEntity.ok(diario)
     }
 
     @GetMapping("/resumo-mensal")

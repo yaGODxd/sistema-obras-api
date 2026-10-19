@@ -59,6 +59,14 @@ class VeiculoController(
         veiculoService.inativar(id)
         return ResponseEntity.ok().build()
     }
+    // Rota nova: reativa ({"ativo": true}) ou inativa ({"ativo": false}).
+    // 400 id inválido ou placa já usada por veículo ativo, 404 veículo não existe.
+    @PutMapping("/{id}/ativo")
+    fun alterarAtivo(@PathVariable id: String, @RequestBody body: Map<String, Boolean>): ResponseEntity<Void> {
+        veiculoService.alterarAtivo(id, body["ativo"] ?: true)
+        return ResponseEntity.ok().build()
+    }
+
     @GetMapping("/comboios")
     fun listarComboios(): ResponseEntity<List<VeiculoResponse>> {
         return ResponseEntity.ok(veiculoService.listarComboios())

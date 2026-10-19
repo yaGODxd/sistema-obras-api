@@ -1,5 +1,6 @@
 package com.example.sistemaobras.service
 
+import com.example.sistemaobras.exception.CodigosErro
 import com.example.sistemaobras.exception.RegraNegocioException
 import com.example.sistemaobras.dto.AbrirDiarioRequest
 import com.example.sistemaobras.dto.DiarioDetalheResponse
@@ -7,9 +8,11 @@ import com.example.sistemaobras.exception.NaoEncontradoException
 import com.example.sistemaobras.dto.DiarioResponse
 import com.example.sistemaobras.dto.DiarioResumoMensalResponse
 import com.example.sistemaobras.dto.FecharDiarioRequest
+import com.example.sistemaobras.repository.AssinaturaRepository
 import com.example.sistemaobras.repository.DiarioBordoRepository
 import com.example.sistemaobras.repository.TurnoRepository
 import com.example.sistemaobras.repository.VeiculoRepository
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -18,7 +21,10 @@ class DiarioBordoService(
     private val diarioRepository: DiarioBordoRepository,
     private val turnoRepository: TurnoRepository,
     private val veiculoRepository: VeiculoRepository,
-    private val logService: LogService
+    private val logService: LogService,
+    private val assinaturaRepository: AssinaturaRepository,
+    // APP_BLOQUEIOS_DIARIO=false desliga os bloqueios dos itens 9 e 15 (motorista travado).
+    @Value("\${app.bloqueios.diario:true}") private val bloqueiosAtivos: Boolean = true
 ) {
 
     // Diário, status do veículo e log: tudo ou nada (o log tem transação própria).
@@ -29,6 +35,17 @@ class DiarioBordoService(
 
         if (diarioRepository.temDiarioAberto(request.loginMotorista) > 0)
             throw RegraNegocioException("Motorista já tem um diário aberto")
+
+        // Item 9: bloqueios que antes só o app fazia (interruptor APP_BLOQUEIOS_DIARIO).
+        if (bloqueiosAtivos) {
+            if (assinaturaRepository.contarPinDefinido(request.loginMotorista) == 0L)
+                throw RegraNegocioException("Cadastre seu PIN de assinatura antes de abrir um diário.", CodigosErro.PIN_AUSENTE)
+            if (diarioRepository.contarPendentesDeAssinatura(request.loginMotorista) > 0)
+                throw RegraNegocioException(
+                    "Você tem um diário fechado aguardando assinatura. Assine-o antes de abrir outro.",
+                    CodigosErro.DIARIO_PENDENTE_ASSINATURA
+                )
+        }
 
         diarioRepository.abrirDiario(
             login = request.loginMotorista,

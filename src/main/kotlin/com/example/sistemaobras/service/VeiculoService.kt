@@ -3,6 +3,7 @@ package com.example.sistemaobras.service
 import com.example.sistemaobras.exception.ConflitoException
 import com.example.sistemaobras.exception.NaoEncontradoException
 import com.example.sistemaobras.exception.RegraNegocioException
+import com.example.sistemaobras.exception.uuidValido
 import com.example.sistemaobras.dto.VeiculoEmUsoResponse
 import com.example.sistemaobras.dto.VeiculoRequest
 import com.example.sistemaobras.dto.VeiculoResponse
@@ -125,6 +126,19 @@ class VeiculoService(
             chassi = request.chassi?.uppercase(),
             comboio = request.comboio
         )
+    }
+
+    // PUT /veiculos/{id}/ativo (rota nova). Reativar volta como disponivel, mas é
+    // recusado (400) se outro veículo ativo já usa a mesma placa.
+    fun alterarAtivo(id: String, ativo: Boolean) {
+        val veiculo = veiculoRepository.findById(uuidValido(id))
+            .orElseThrow { NaoEncontradoException("Veículo não encontrado.") }
+        if (!ativo) return inativar(id)
+        if (veiculo.status != "inativo") return
+        val placa = veiculo.placa?.uppercase()?.filter { it in 'A'..'Z' || it in '0'..'9' }
+        if (!placa.isNullOrEmpty() && veiculoRepository.contarPorPlaca(placa, id) > 0)
+            throw RegraNegocioException("Já existe um veículo ativo com esta placa.")
+        veiculoRepository.atualizarStatus(id, "disponivel")
     }
 
     fun inativar(id: String) {

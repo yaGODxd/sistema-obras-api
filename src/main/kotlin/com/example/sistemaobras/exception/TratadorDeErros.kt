@@ -38,7 +38,7 @@ class TratadorDeErros : ResponseEntityExceptionHandler() {
 
     @ExceptionHandler(ApiException::class)
     fun tratarApi(e: ApiException, request: HttpServletRequest): ResponseEntity<Map<String, String>> {
-        return responder(statusFixo(request) ?: e.status, e.message ?: MENSAGEM_ERRO_INTERNO)
+        return responder(statusFixo(request) ?: e.status, e.message ?: MENSAGEM_ERRO_INTERNO, e.codigo)
     }
 
     @ExceptionHandler(DataIntegrityViolationException::class)
@@ -76,8 +76,9 @@ class TratadorDeErros : ResponseEntityExceptionHandler() {
         return ResponseEntity.status(statusCode).headers(headers).body(mapOf("erro" to mensagemSpring(ex, statusCode)))
     }
 
-    private fun responder(status: HttpStatusCode, mensagem: String): ResponseEntity<Map<String, String>> =
-        ResponseEntity.status(status).body(mapOf("erro" to mensagem))
+    // "codigo" só aparece quando a exceção tem um (campo a mais; quem lê só "erro" não muda).
+    private fun responder(status: HttpStatusCode, mensagem: String, codigo: String? = null): ResponseEntity<Map<String, String>> =
+        ResponseEntity.status(status).body(if (codigo == null) mapOf("erro" to mensagem) else mapOf("erro" to mensagem, "codigo" to codigo))
 
     private fun statusFixo(request: HttpServletRequest): HttpStatusCode? {
         val handler = request.getAttribute(HandlerMapping.BEST_MATCHING_HANDLER_ATTRIBUTE) as? HandlerMethod

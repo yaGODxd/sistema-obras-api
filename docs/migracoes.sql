@@ -269,3 +269,62 @@ WHERE EXISTS (SELECT 1 FROM manutencoes m WHERE m.ocorrencia_id = o.id)
 
 -- DESFAZER: voltar o código para antes da Parte 3 NÃO exige mexer no banco
 -- (o código antigo funciona com as colunas novas). Não apague as colunas.
+
+-- =====================================================================
+-- 19/10/2026 - Parte 5 (segurança e bloqueios) - SÓ LEITURA, rodar ANTES do deploy
+-- =====================================================================
+-- Depois da Parte 5 a API recusa abrir diário quando o motorista:
+--   a) não tem PIN de assinatura, ou
+--   b) tem diário FECHADO aguardando assinatura.
+-- Diários antigos (de antes da assinatura existir) podem estar como 'fechado' e
+-- travar motoristas. Confira quem seria bloqueado hoje:
+-- SELECT u.login, u.nome_completo,
+--        (u.pin_assinatura_hash IS NOT NULL) AS tem_pin,
+--        COUNT(d.id) FILTER (WHERE d.status = 'fechado') AS diarios_pendentes,
+--        MIN(d.fechado_em) FILTER (WHERE d.status = 'fechado') AS pendente_mais_antigo
+-- FROM usuarios u
+-- LEFT JOIN diarios_bordo d ON d.usuario_id = u.id
+-- WHERE CAST(u.perfil AS text) = 'motorista' AND u.ativo = true
+-- GROUP BY u.login, u.nome_completo, u.pin_assinatura_hash
+-- ORDER BY diarios_pendentes DESC, u.login;
+-- Se aparecerem muitos pendentes antigos, me mande o resultado antes do deploy.
+
+-- =====================================================================
+-- 19/10/2026 - Parte 6B - CONSULTAS PARA O PLANO (só leitura; mande os resultados)
+-- =====================================================================
+-- C1) Colunas das tabelas de evento:
+-- SELECT table_name, column_name, data_type, is_nullable, column_default
+-- FROM information_schema.columns
+-- WHERE table_schema = 'public'
+--   AND table_name IN ('turnos','diarios_bordo','abastecimentos','ocorrencias','rastreamento_gps','checklist_respostas','veiculos')
+-- ORDER BY table_name, ordinal_position;
+
+-- C2) Índices e restrições únicas dessas tabelas:
+-- SELECT tablename, indexname, indexdef
+-- FROM pg_indexes
+-- WHERE schemaname = 'public'
+--   AND tablename IN ('turnos','diarios_bordo','abastecimentos','ocorrencias','rastreamento_gps','checklist_respostas')
+-- ORDER BY tablename, indexname;
+
+-- C3) Triggers:
+-- SELECT event_object_table AS tabela, trigger_name, action_timing, event_manipulation, action_statement
+-- FROM information_schema.triggers
+-- WHERE trigger_schema = 'public'
+-- ORDER BY 1, 2;
+
+-- C4) Código das funções do banco (inclui as chamadas pelos triggers):
+-- SELECT p.proname AS funcao, pg_get_functiondef(p.oid) AS definicao
+-- FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+-- WHERE n.nspname = 'public' AND p.prokind = 'f'
+-- ORDER BY 1;
+
+-- C5) Valores dos enums (status de turno, diário, veículo...):
+-- SELECT t.typname AS enum, e.enumlabel AS valor
+-- FROM pg_type t JOIN pg_enum e ON e.enumtypid = t.oid
+-- ORDER BY t.typname, e.enumsortorder;
+
+-- C6) Volume (para dimensionar o rastreamento em lote):
+-- SELECT 'rastreamento_gps' AS tabela, COUNT(*) FROM rastreamento_gps
+-- UNION ALL SELECT 'abastecimentos', COUNT(*) FROM abastecimentos
+-- UNION ALL SELECT 'ocorrencias', COUNT(*) FROM ocorrencias
+-- UNION ALL SELECT 'diarios_bordo', COUNT(*) FROM diarios_bordo;

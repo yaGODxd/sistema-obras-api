@@ -93,7 +93,7 @@ Depois PARE e espere "pode começar a parte 1".
 - OPCIONAL (decisão 19/10): rota para reativar veículo inativo (hoje DELETE só inativa e não há volta). A placa de veículo inativo continua liberada para novo cadastro.
 - Só acrescentar campos.
 
-## PARTE 5 - Segurança: rotas atrás do JWT, bloqueios no servidor, CORS (itens 8, 9, 15 e 4)
+## PARTE 5 - Segurança: rotas atrás do JWT, bloqueios no servidor, CORS (itens 8, 9, 15 e 4) - FEITA em 19/10 (matriz APROVADA em 19/10, implementada atrás do interruptor DESLIGADO; ligar só quando o app mandar token em todas as chamadas)
 - No plano, traga a matriz rota x perfil (gestor, motorista, ambos) para eu aprovar. Público: só /auth/login e /error.
 - Interruptor por variável de ambiente (ex.: app.seguranca.exigir-jwt, padrão false) para eu ligar no Render só depois de confirmar que o app Android manda o token em todas as chamadas, podendo desligar sem novo deploy.
 - 401 (sem token) e 403 (sem permissão) em {"erro"}.
@@ -102,6 +102,12 @@ Depois PARE e espere "pode começar a parte 1".
 - Item 15 (decidido 19/10): POST /turnos/fechar recusa SOMENTE se existir diário com status aberto, com {"erro": "Você tem um diário aberto. Feche o diário antes de sair de serviço."} e o mesmo status de erro que a rota usa hoje (400). Diário fechado pendente de assinatura NÃO impede sair de serviço (o bloqueio dele é ao abrir o próximo diário).
 - Identidade: abastecimento e ocorrência (e demais rotas do motorista) passam a usar o login do TOKEN quando houver token válido, em vez de loginMotorista do corpo.
 - Não altere o formato do exp do token sem me avisar.
+- Interruptor dos bloqueios (pedido 19/10, FEITO): APP_BLOQUEIOS_DIARIO (padrão true = ligado) liga/desliga os bloqueios dos itens 9 e 15 (sem PIN, diário fechado pendente de assinatura, sair de serviço com diário aberto). false no Render desliga sem novo jar, caso algum motorista fique travado. Separado do APP_SEGURANCA_EXIGIR_JWT.
+- Códigos de erro (adendo 19/10, FEITO): as três recusas trazem, além de "erro", o campo "codigo" (só acréscimo; o status continua 400):
+  - PIN_AUSENTE: abrir diário sem PIN cadastrado;
+  - DIARIO_PENDENTE_ASSINATURA: abrir diário com outro fechado aguardando assinatura;
+  - TURNO_COM_DIARIO_ABERTO: sair de serviço com diário aberto.
+  O app usa o código para deixar a fila offline EM ESPERA (não é erro permanente). Os textos dos códigos são estáveis (CodigosErro). Erros sem código não ganham o campo. Rotas novas da 6B também devem trazer "codigo".
 
 ## PARTE 6 - Horário real do evento (uso offline) e fuso (itens 1, 5 e 6)
 - Publicar a API ANTES do app. Banco guarda UTC.
@@ -130,6 +136,20 @@ Depois PARE e espere "pode começar a parte 1".
   c) Recusar ou sinalizar horário no futuro (com tolerância) e muito antigo.
   d) Recusar ou sinalizar evento fora da janela aberto_em..fechado_em do diário (abastecimento, ocorrência, rastreamento, checklist) e, para o diário, fora da janela do turno.
   e) Como sinalizar (ex.: coluna horario_suspeito / motivo) e onde o gestor vê isso.
+
+### Parte 6B - PROPOSTA (19/10, aguardando as consultas C1-C6 de docs/migracoes.sql e as respostas do Yago)
+Nada foi implementado. Resumo do desenho (detalhes no relatório da conversa):
+- Banco (aditivo, depois das consultas): em cada tabela de evento, a coluna de horário que já existe passa a guardar a HORA DO EVENTO (celular, UTC) e entram colunas novas: recebido_em (hora do servidor), id_local uuid com índice único parcial (idempotência), desvio_relogio_seg (recebido - enviadoEm) e horario_suspeito/motivo_suspeita. Turnos e diários têm abertura e fechamento: colunas separadas para cada um.
+- Entrada: ocorridoEm (ISO-8601 com Z) e idLocal opcionais; registradoEm (epoch ms) continua aceito, ocorridoEm tem prioridade; enviadoEm opcional. Sem os campos: comportamento atual.
+- Idempotência: mesmo idLocal devolve o registro já gravado (200), inclusive em corrida (índice único + releitura).
+- diarioId opcional em abastecimento, ocorrência, rastreamento e checklist: dono pelo token + ocorridoEm dentro de aberto_em..fechado_em (aberto: até agora). Sem diarioId: diário aberto agora (como hoje).
+- Rotas novas: POST /diarios/{id}/fechar e POST /rastreamento/lote (aceita parcial: cada ponto volta como gravado, duplicado, descartado ou recusado com codigo).
+- Horário: futuro além da tolerância -> recusa (HORARIO_FUTURO); muito antigo -> só sinaliza; desvio do relógio -> só sinaliza (não corrige sozinho).
+- Status das rotas novas: 200, 400, 401, 403, 404, 409, 422; 5xx = tentar de novo. Todo erro de regra com "codigo". Rotas antigas mantêm o status fixo e ganham "codigo".
+- GET /rastreamento/posicoes passa a filtrar por recebido_em.
+
+### Parte 6B - acréscimo 3 (decisão 19/10, vindo da Parte 5)
+- Fechar o dono do diário nas rotas por id de diário: GET /abastecimentos/diario/{id}, GET /ocorrencias/diario/{id}, GET /rastreamento/diario/{id} e POST /checklist/respostas. Motorista só acessa diário próprio (gestor acessa todos). Fazer junto com o diarioId opcional.
 
 ### Parte 6B - acréscimo 2 (relatório do app, confirmado no código dele, 19/10)
 Com a fila offline, o app envia os eventos de cada diário SEPARADOS do momento em que o diário está aberto. A API não pode depender de "diário aberto AGORA".

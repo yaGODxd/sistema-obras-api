@@ -58,6 +58,15 @@ class ManutencaoController(
         return ResponseEntity.ok(manutencaoService.adicionarPeca(id, request))
     }
 
+    // Rota nova (sem status fixo): 400, 404 ou 409 conforme o erro.
+    @PutMapping("/pecas/{pecaId}")
+    fun atualizarPeca(
+        @PathVariable pecaId: String,
+        @Valid @RequestBody request: PecaRequest
+    ): ResponseEntity<PecaResponse> {
+        return ResponseEntity.ok(manutencaoService.atualizarPeca(pecaId, request))
+    }
+
     @DeleteMapping("/pecas/{pecaId}")
     @StatusErroFixo(404)
     fun removerPeca(@PathVariable pecaId: String): ResponseEntity<Void> {

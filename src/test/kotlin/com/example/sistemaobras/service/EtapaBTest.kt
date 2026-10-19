@@ -45,7 +45,8 @@ class EtapaBTest {
             DiarioBordo(id = UUID.randomUUID(), veiculoId = UUID.randomUUID(), medidorInicial = BigDecimal("1000"))
         )
         val service = DiarioBordoService(
-            diarioRepository, mock(TurnoRepository::class.java), mock(VeiculoRepository::class.java), mock(LogService::class.java)
+            diarioRepository, mock(TurnoRepository::class.java), mock(VeiculoRepository::class.java), mock(LogService::class.java),
+            mock(AssinaturaRepository::class.java)
         )
 
         val erro = assertFailsWith<RegraNegocioException> { service.fecharDiario("m", FecharDiarioRequest(medidorFinal = 999.0)) }

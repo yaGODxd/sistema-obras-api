@@ -114,7 +114,8 @@ class Parte4Test {
     // ---------- Diário: detalhe ----------
 
     private fun diarioService(repo: DiarioBordoRepository) = DiarioBordoService(
-        repo, mock(TurnoRepository::class.java), mock(VeiculoRepository::class.java), mock(LogService::class.java)
+        repo, mock(TurnoRepository::class.java), mock(VeiculoRepository::class.java), mock(LogService::class.java),
+        mock(AssinaturaRepository::class.java)
     )
 
     @Test
