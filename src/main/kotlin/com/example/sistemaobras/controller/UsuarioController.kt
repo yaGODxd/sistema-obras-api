@@ -1,5 +1,6 @@
 package com.example.sistemaobras.controller
 
+import jakarta.validation.Valid
 import com.example.sistemaobras.dto.AtualizarPerfilRequest
 import com.example.sistemaobras.dto.AtualizarUsuarioRequest
 import com.example.sistemaobras.dto.MotoristaOnlineResponse
@@ -32,7 +33,7 @@ class UsuarioController(
     @StatusErroFixo(400)
     fun atualizarPerfil(
         @PathVariable login: String,
-        @RequestBody request: AtualizarPerfilRequest
+        @Valid @RequestBody request: AtualizarPerfilRequest
     ): ResponseEntity<UsuarioResponse> {
         return ResponseEntity.ok(usuarioService.atualizarPerfil(login, request))
     }
@@ -56,7 +57,7 @@ class UsuarioController(
     @StatusErroFixo(400)
     fun atualizarUsuario(
         @PathVariable login: String,
-        @RequestBody request: AtualizarUsuarioRequest
+        @Valid @RequestBody request: AtualizarUsuarioRequest
     ): ResponseEntity<UsuarioResponse> {
         return ResponseEntity.ok(usuarioService.atualizarUsuario(login, request))
     }

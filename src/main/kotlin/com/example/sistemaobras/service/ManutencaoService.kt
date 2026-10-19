@@ -4,10 +4,12 @@ import com.example.sistemaobras.exception.NaoEncontradoException
 import com.example.sistemaobras.dto.*
 import com.example.sistemaobras.entity.Manutencao
 import com.example.sistemaobras.entity.ManutencaoPeca
+import com.example.sistemaobras.repository.DiarioBordoRepository
 import com.example.sistemaobras.repository.ManutencaoPecaRepository
 import com.example.sistemaobras.repository.ManutencaoRepository
 import com.example.sistemaobras.repository.VeiculoRepository
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
 import java.time.LocalDateTime
 import java.util.UUID
@@ -17,12 +19,21 @@ class ManutencaoService(
     private val manutencaoRepository: ManutencaoRepository,
     private val manutencaoPecaRepository: ManutencaoPecaRepository,
     private val veiculoRepository: VeiculoRepository,
+    private val diarioBordoRepository: DiarioBordoRepository,
+    private val ocorrenciaService: OcorrenciaService,
     private val logService: LogService
 ) {
 
+    // Login de quem fez a ação (token válido) ou "sistema" quando não há token.
+    private fun autorDoLog(): String = logService.loginAutenticado() ?: "sistema"
+    private fun nomeDoAutor(login: String): String? = if (login == "sistema") "Sistema" else null
+
+    // Manutenção, peças, veículo, ocorrência e log: tudo ou nada (o log tem transação própria).
+    @Transactional
     fun abrir(request: ManutencaoRequest): ManutencaoResponse {
         val veiculo = veiculoRepository.findById(UUID.fromString(request.veiculoId))
             .orElseThrow { NaoEncontradoException("Veículo não encontrado.") }
+        request.ocorrenciaId?.let { ocorrenciaService.buscar(UUID.fromString(it)) }
 
         val manutencao = manutencaoRepository.save(Manutencao(
             veiculoId = veiculo.id,
@@ -48,10 +59,12 @@ class ManutencaoService(
         }
 
         veiculoRepository.atualizarStatus(request.veiculoId, "em_manutencao")
+        ocorrenciaService.atualizarPelaManutencao(manutencao)
 
+        val autor = autorDoLog()
         logService.registrar(
-            usuarioLogin = "sistema",
-            usuarioNome = "Sistema",
+            usuarioLogin = autor,
+            usuarioNome = nomeDoAutor(autor),
             acao = "MANUTENCAO_ABERTA",
             descricao = "Manutenção aberta — Veículo: ${veiculo.descricao}, " +
                     "Tipo: ${request.tipo}, Descrição: ${request.descricao}"
@@ -60,36 +73,48 @@ class ManutencaoService(
         return toResponse(manutencao, pecas, veiculo.descricao, veiculo.placa)
     }
 
+    // O status já chega validado (aberta, em_andamento ou concluida) pelo AtualizarStatusRequest.
+    @Transactional
     fun atualizarStatus(id: String, request: AtualizarStatusRequest): ManutencaoResponse {
         val manutencao = manutencaoRepository.findById(UUID.fromString(id))
             .orElseThrow { NaoEncontradoException("Manutenção não encontrada.") }
 
-        val atualizada = manutencao.copy(
+        val atualizada = manutencaoRepository.save(manutencao.copy(
             status = request.status,
             observacoes = request.observacoes ?: manutencao.observacoes,
-            concluidaEm = if (request.status == "concluida") LocalDateTime.now() else manutencao.concluidaEm,
-            atualizadoEm = LocalDateTime.now()
-        )
+            concluidaEm = if (request.status == "concluida") LocalDateTime.now(java.time.ZoneOffset.UTC) else manutencao.concluidaEm,
+            atualizadoEm = LocalDateTime.now(java.time.ZoneOffset.UTC)
+        ))
 
-        manutencaoRepository.save(atualizada)
-
-        when (request.status) {
-            "em_andamento" -> veiculoRepository.atualizarStatus(manutencao.veiculoId.toString(), "em_manutencao")
-            "concluida" -> veiculoRepository.atualizarStatus(manutencao.veiculoId.toString(), "disponivel")
-            "aberta" -> veiculoRepository.atualizarStatus(manutencao.veiculoId.toString(), "em_manutencao")
-        }
+        veiculoRepository.atualizarStatus(manutencao.veiculoId.toString(), statusDoVeiculo(atualizada))
+        ocorrenciaService.atualizarPelaManutencao(atualizada)
 
         val pecas = manutencaoPecaRepository.findByManutencaoId(manutencao.id!!)
         val veiculo = veiculoRepository.findById(manutencao.veiculoId!!).orElseThrow()
 
+        val autor = autorDoLog()
         logService.registrar(
-            usuarioLogin = "sistema",
-            usuarioNome = "Sistema",
+            usuarioLogin = autor,
+            usuarioNome = nomeDoAutor(autor),
             acao = "MANUTENCAO_STATUS",
             descricao = "Status da manutenção atualizado para '${request.status}' — Veículo: ${veiculo.descricao}"
         )
 
         return toResponse(atualizada, pecas, veiculo.descricao, veiculo.placa)
+    }
+
+    // Item 19: ao concluir, o veículo só volta a ficar livre se não houver outra
+    // manutenção dele em aberto; se ele tem diário aberto, fica em_uso.
+    private fun statusDoVeiculo(atual: Manutencao): String {
+        if (atual.status != "concluida") return "em_manutencao"
+        val veiculoId = atual.veiculoId!!
+        val outraAberta = manutencaoRepository.findByVeiculoId(veiculoId)
+            .any { it.id != atual.id && it.status != "concluida" }
+        return when {
+            outraAberta -> "em_manutencao"
+            diarioBordoRepository.temDiarioAbertoPorVeiculo(veiculoId.toString()) > 0 -> "em_uso"
+            else -> "disponivel"
+        }
     }
 
     fun listarTodas(): List<ManutencaoResponse> {

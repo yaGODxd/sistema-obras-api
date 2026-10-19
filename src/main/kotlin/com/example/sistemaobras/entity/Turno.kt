@@ -18,7 +18,7 @@ data class Turno(
     val status: String = "aberto",
 
     @Column(name = "aberto_em", nullable = false)
-    val abertoEm: LocalDateTime = LocalDateTime.now(),
+    val abertoEm: LocalDateTime = LocalDateTime.now(java.time.ZoneOffset.UTC),
 
     @Column(name = "fechado_em")
     val fechadoEm: LocalDateTime? = null

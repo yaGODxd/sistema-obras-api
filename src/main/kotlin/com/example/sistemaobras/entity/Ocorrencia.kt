@@ -28,5 +28,12 @@ data class Ocorrencia(
     val longitude: BigDecimal? = null,
 
     @Column(name = "registrado_em", nullable = false)
-    val registradoEm: LocalDateTime = LocalDateTime.now()
+    val registradoEm: LocalDateTime = LocalDateTime.now(java.time.ZoneOffset.UTC),
+
+    // Texto (não enum do Postgres): aberta, em_andamento, concluida, descartada.
+    @Column(name = "status", nullable = false)
+    val status: String = "aberta",
+
+    @Column(name = "resolvida_em")
+    val resolvidaEm: LocalDateTime? = null
 )

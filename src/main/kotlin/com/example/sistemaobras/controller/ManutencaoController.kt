@@ -44,7 +44,7 @@ class ManutencaoController(
     @StatusErroFixo(400)
     fun atualizarStatus(
         @PathVariable id: String,
-        @RequestBody request: AtualizarStatusRequest
+        @Valid @RequestBody request: AtualizarStatusRequest
     ): ResponseEntity<ManutencaoResponse> {
         return ResponseEntity.ok(manutencaoService.atualizarStatus(id, request))
     }

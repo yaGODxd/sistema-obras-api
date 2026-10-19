@@ -26,7 +26,7 @@ class TurnoService(
             id = null,
             login = login,
             status = "aberto",
-            abertoEm = java.time.LocalDateTime.now()
+            abertoEm = java.time.LocalDateTime.now(java.time.ZoneOffset.UTC)
         )
     }
 

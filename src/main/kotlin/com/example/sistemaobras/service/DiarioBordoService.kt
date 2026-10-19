@@ -9,6 +9,7 @@ import com.example.sistemaobras.repository.DiarioBordoRepository
 import com.example.sistemaobras.repository.TurnoRepository
 import com.example.sistemaobras.repository.VeiculoRepository
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 
 @Service
 class DiarioBordoService(
@@ -18,6 +19,8 @@ class DiarioBordoService(
     private val logService: LogService
 ) {
 
+    // Diário, status do veículo e log: tudo ou nada (o log tem transação própria).
+    @Transactional
     fun abrirDiario(request: AbrirDiarioRequest): DiarioResponse {
         if (turnoRepository.temTurnoAberto(request.loginMotorista) == 0L)
             throw RegraNegocioException("Motorista não tem turno aberto")
@@ -66,9 +69,14 @@ class DiarioBordoService(
         )
     }
 
+    @Transactional
     fun fecharDiario(login: String, request: FecharDiarioRequest): DiarioResponse {
         val diario = diarioRepository.findDiarioAberto(login)
             ?: throw RegraNegocioException("Não há diário aberto para este motorista")
+
+        // Troca de hodômetro não é tratada (limitação documentada).
+        if (request.medidorFinal < diario.medidorInicial.toDouble())
+            throw RegraNegocioException("O medidor final não pode ser menor que o medidor inicial.")
 
         diarioRepository.fecharDiario(
             id = diario.id.toString(),
@@ -99,7 +107,7 @@ class DiarioBordoService(
             destino = diario.destino,
             status = "fechado",
             abertoEm = diario.abertoEm,
-            fechadoEm = java.time.LocalDateTime.now()
+            fechadoEm = java.time.LocalDateTime.now(java.time.ZoneOffset.UTC)
         )
     }
 

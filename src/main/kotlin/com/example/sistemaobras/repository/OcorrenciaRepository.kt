@@ -10,6 +10,8 @@ interface OcorrenciaRepository : JpaRepository<Ocorrencia, UUID> {
 
     fun findByDiarioId(diarioId: UUID): List<Ocorrencia>
 
+    fun findByStatusOrderByRegistradoEmDesc(status: String): List<Ocorrencia>
+
     @Query("""
         SELECT o.* FROM ocorrencias o
         INNER JOIN diarios_bordo d ON o.diario_id = d.id

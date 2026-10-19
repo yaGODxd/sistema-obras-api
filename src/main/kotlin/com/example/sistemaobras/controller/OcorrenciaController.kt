@@ -1,6 +1,7 @@
 package com.example.sistemaobras.controller
 
 import jakarta.validation.Valid
+import com.example.sistemaobras.dto.AtualizarStatusOcorrenciaRequest
 import com.example.sistemaobras.dto.OcorrenciaDetalhadaResponse
 import com.example.sistemaobras.dto.OcorrenciaRequest
 import com.example.sistemaobras.dto.OcorrenciaResponse
@@ -41,8 +42,18 @@ class OcorrenciaController(
         return ResponseEntity.ok(ocorrenciaService.listarPorMotorista(login))
     }
 
+    // ?status=aberta (opcional) filtra a lista.
     @GetMapping
-    fun listarTodas(): ResponseEntity<List<OcorrenciaDetalhadaResponse>> {
-        return ResponseEntity.ok(ocorrenciaService.listarTodas())
+    fun listarTodas(@RequestParam(required = false) status: String?): ResponseEntity<List<OcorrenciaDetalhadaResponse>> {
+        return ResponseEntity.ok(ocorrenciaService.listarTodas(status))
+    }
+
+    // Rota nova: erros com status coerentes (400 valor inválido, 404 não encontrada).
+    @PutMapping("/{id}/status")
+    fun atualizarStatus(
+        @PathVariable id: String,
+        @Valid @RequestBody request: AtualizarStatusOcorrenciaRequest
+    ): ResponseEntity<OcorrenciaResponse> {
+        return ResponseEntity.ok(ocorrenciaService.atualizarStatus(id, request.status))
     }
 }

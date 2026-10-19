@@ -73,7 +73,7 @@ class ChecklistController(
     // ==================== RESPOSTAS ====================
 
     @PostMapping("/respostas")
-    fun salvarRespostas(@RequestBody request: ChecklistRespostaRequest): ResponseEntity<Void> {
+    fun salvarRespostas(@Valid @RequestBody request: ChecklistRespostaRequest): ResponseEntity<Void> {
         request.respostas.forEach { r ->
             respostaRepository.save(ChecklistResposta(
                 diarioId = UUID.fromString(request.diarioId),

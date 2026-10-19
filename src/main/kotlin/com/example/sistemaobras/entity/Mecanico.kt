@@ -24,5 +24,5 @@ data class Mecanico(
     val ativo: Boolean = true,
 
     @Column(name = "criado_em", nullable = false)
-    val criadoEm: LocalDateTime = LocalDateTime.now()
+    val criadoEm: LocalDateTime = LocalDateTime.now(java.time.ZoneOffset.UTC)
 )

@@ -27,5 +27,5 @@ data class Log(
     val ip: String? = null,
 
     @Column(name = "criado_em", nullable = false)
-    val criadoEm: LocalDateTime = LocalDateTime.now()
+    val criadoEm: LocalDateTime = LocalDateTime.now(java.time.ZoneOffset.UTC)
 )

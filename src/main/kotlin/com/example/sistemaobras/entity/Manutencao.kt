@@ -37,7 +37,7 @@ data class Manutencao(
     val status: String = "aberta",
 
     @Column(name = "aberta_em", nullable = false)
-    val abertaEm: LocalDateTime = LocalDateTime.now(),
+    val abertaEm: LocalDateTime = LocalDateTime.now(java.time.ZoneOffset.UTC),
 
     @Column(name = "concluida_em")
     val concluidaEm: LocalDateTime? = null,
@@ -49,8 +49,8 @@ data class Manutencao(
     val fotoNotaFiscal: String? = null,
 
     @Column(name = "criado_em", nullable = false)
-    val criadoEm: LocalDateTime = LocalDateTime.now(),
+    val criadoEm: LocalDateTime = LocalDateTime.now(java.time.ZoneOffset.UTC),
 
     @Column(name = "atualizado_em", nullable = false)
-    val atualizadoEm: LocalDateTime = LocalDateTime.now()
+    val atualizadoEm: LocalDateTime = LocalDateTime.now(java.time.ZoneOffset.UTC)
 )

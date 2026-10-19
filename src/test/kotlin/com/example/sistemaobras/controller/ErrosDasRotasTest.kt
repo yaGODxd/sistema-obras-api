@@ -200,7 +200,7 @@ class ErrosDasRotasTest {
     fun `valor negativo e recusado com 400`() {
         json(post("/abastecimentos"), """{"loginMotorista":"m","tipoCombustivel":"diesel","litros":-1,"valorTotal":60}""")
             .andExpect(status().isBadRequest)
-            .andExpect(jsonPath("$.erro").value("Campo 'litros' não pode ser negativo."))
+            .andExpect(jsonPath("$.erro").value("Campo 'litros' deve ser maior que zero."))
         json(post("/diarios/fechar/m"), """{"medidorFinal":-5}""")
             .andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.erro").value("Campo 'medidorFinal' não pode ser negativo."))
@@ -214,7 +214,7 @@ class ErrosDasRotasTest {
         json(post("/manutencoes"), """{"veiculoId":"$uuid","tipo":"corretiva","descricao":"Freio",
             "pecas":[{"nomePeca":"Pastilha","quantidade":-2,"valorUnitario":10}]}""")
             .andExpect(status().isBadRequest)
-            .andExpect(jsonPath("$.erro").value("Campo 'pecas[0].quantidade' não pode ser negativo."))
+            .andExpect(jsonPath("$.erro").value("Campo 'pecas[0].quantidade' deve ser no mínimo 1."))
         json(post("/manutencoes/$uuid/pecas"), """{"nomePeca":"Pastilha","quantidade":1,"valorUnitario":-10}""")
             .andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.erro").value("Campo 'valorUnitario' não pode ser negativo."))
@@ -238,11 +238,86 @@ class ErrosDasRotasTest {
     }
 
     @Test
+    fun `texto maior que a coluna do banco e recusado`() {
+        val longo = "x".repeat(256)
+        json(post("/ocorrencias"), """{"loginMotorista":"m","tipo":"pneu","descricao":"$longo"}""")
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.erro").value("Campo 'descricao' deve ter no máximo 255 caracteres."))
+        json(put("/manutencoes/$uuid/status"), """{"status":"concluida","observacoes":"$longo"}""")
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.erro").value("Campo 'observacoes' deve ter no máximo 255 caracteres."))
+        json(post("/checklist/respostas"), """{"diarioId":"$uuid","respostas":[{"itemId":"$uuid","ok":true,"observacao":"$longo"}]}""")
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.erro").value("Campo 'respostas[0].observacao' deve ter no máximo 255 caracteres."))
+    }
+
+    @Test
+    fun `foto de perfil nao tem limite de tamanho na API`() {
+        val foto = "a".repeat(5000)
+        json(put("/usuarios/joao/perfil"), """{"fotoPerfil":"$foto"}""")
+            .andExpect(status().isOk)
+    }
+
+    @Test
     fun `placa repetida mantem 400 com mensagem`() {
         willThrow(ConflitoException("Já existe um veículo com esta placa.")).given(veiculoService).cadastrar(qualquer())
         json(post("/veiculos"), """{"tipoId":"$uuid","placa":"ABC1D23","descricao":"Caminhão"}""")
             .andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.erro").value("Já existe um veículo com esta placa."))
+    }
+
+    // ---------- Parte 3 ----------
+
+    @Test
+    fun `zero litros e quantidade zero sao recusados mas valor zero e aceito`() {
+        json(post("/abastecimentos"), """{"loginMotorista":"m","tipoCombustivel":"diesel","litros":0,"valorTotal":60}""")
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.erro").value("Campo 'litros' deve ser maior que zero."))
+        json(post("/manutencoes/$uuid/pecas"), """{"nomePeca":"Pastilha","quantidade":0,"valorUnitario":0}""")
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.erro").value("Campo 'quantidade' deve ser no mínimo 1."))
+        json(post("/abastecimentos"), """{"loginMotorista":"m","tipoCombustivel":"diesel","litros":10,"valorTotal":0}""")
+            .andExpect(status().isOk)
+        json(post("/manutencoes/$uuid/pecas"), """{"nomePeca":"Pastilha","quantidade":1,"valorUnitario":0}""")
+            .andExpect(status().isOk)
+    }
+
+    @Test
+    fun `status de manutencao desconhecido e recusado`() {
+        json(put("/manutencoes/$uuid/status"), """{"status":"finalizada"}""")
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.erro").value("Campo 'status' deve ser aberta, em_andamento ou concluida."))
+    }
+
+    @Test
+    fun `medidor final menor que o inicial mantem 400 com mensagem`() {
+        given(diarioBordoService.fecharDiario(anyString(), qualquer()))
+            .willThrow(RegraNegocioException("O medidor final não pode ser menor que o medidor inicial."))
+        json(post("/diarios/fechar/m"), """{"medidorFinal":10}""")
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.erro").value("O medidor final não pode ser menor que o medidor inicial."))
+    }
+
+    @Test
+    fun `status da ocorrencia a mao`() {
+        json(put("/ocorrencias/$uuid/status"), """{"status":"resolvida"}""")
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.erro").value("Campo 'status' deve ser aberta, em_andamento, concluida ou descartada."))
+
+        given(ocorrenciaService.atualizarStatus(uuid, "concluida")).willThrow(NaoEncontradoException("Ocorrência não encontrada."))
+        json(put("/ocorrencias/$uuid/status"), """{"status":"concluida"}""")
+            .andExpect(status().isNotFound)
+            .andExpect(jsonPath("$.erro").value("Ocorrência não encontrada."))
+
+        json(put("/ocorrencias/$uuid/status"), """{"status":"descartada"}""")
+            .andExpect(status().isOk)
+    }
+
+    @Test
+    fun `lista de ocorrencias aceita filtro de status`() {
+        mockMvc.perform(get("/ocorrencias").param("status", "aberta"))
+            .andExpect(status().isOk)
+        Mockito.verify(ocorrenciaService).listarTodas("aberta")
     }
 
     @Test

@@ -25,5 +25,5 @@ data class RastreamentoGps(
     val velocidade: BigDecimal? = null,
 
     @Column(name = "registrado_em", nullable = false)
-    val registradoEm: LocalDateTime = LocalDateTime.now()
+    val registradoEm: LocalDateTime = LocalDateTime.now(java.time.ZoneOffset.UTC)
 )

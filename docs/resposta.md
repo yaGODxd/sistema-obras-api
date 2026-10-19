@@ -1,64 +1,101 @@
-A Parte 2 está pronta: 39 testes passaram, 1 desligado de propósito, e o jar foi gerado de novo e mudou. Não fiz commit nem push e não conectei ao banco.
+A Parte 3 (etapas A e B) está pronta: 63 testes passaram, 1 desligado de propósito, e o jar foi gerado de novo e mudou. Não fiz commit e não conectei ao banco.
 
-**Ficou um pedaço pendente:** os limites de tamanho dos textos. Nem as entidades nem o código dizem o tamanho de cada coluna no banco. Para isso preciso que você rode a consulta 4 de `docs/migracoes.sql`; ela só lê, não altera nada. Até lá, um texto longo demais é recusado pelo próprio banco, e a API responde `{"erro":"Algum texto passou do tamanho máximo permitido."}`.
+**O que vai junto no próximo commit:** o último commit no git é "Partes 1 e 2". Ainda não estão commitados três blocos de trabalho, e eles vão juntos:
+1. os limites de tamanho dos textos e o corte do texto do log;
+2. a Parte 6A;
+3. a Parte 3.
 
-## Relatório da Parte 2
+**A ordem importa, porque a Parte 3 precisa de SQL ANTES do deploy:** o código novo lê duas colunas que ainda não existem no banco.
+
+## Relatório da Parte 3
 
 **1. O que mudou**
-- **11 DTOs de entrada:** a API recusa texto obrigatório em branco e número negativo.
-  - Números: medidor (abrir/fechar diário e veículo), litros, valor, custo de mão de obra, quantidade e valor da peça. Vale também para as peças dentro de `POST /manutencoes`.
-  - Perfil no cadastro: só `gestor` ou `motorista`. Isso evita que o banco recuse depois, como aconteceu com o status do veículo.
-- **9 controllers:** passaram a ativar essa validação.
-  - O login ficou de fora de propósito: validar ali mudaria o 401 para 400.
-- **`UsuarioService` e `UsuarioRepository`:** antes de gravar, confere se o CPF já existe, comparando só os números (com ou sem pontos e traço).
-  - Também ganhou o interruptor `app.validar-cpf-digitos`, que vem desligado.
-- **`ValidadorCpf.kt` (novo):** a conta dos dígitos verificadores do CPF.
-- **`VeiculoService` e `VeiculoRepository`:** antes de gravar e na edição, confere se a placa já existe.
-  - Ignora traço, espaço e maiúsculas/minúsculas.
-  - Placa vazia não é conferida e passa a ser gravada como vazia (`null`) em vez de `""`.
-  - Na edição, o próprio veículo não conta como repetido.
-- **`TratadorDeErros`:** mensagem no formato "Campo 'litros' não pode ser negativo." e mensagens próprias para texto longo demais e data inválida.
-- **`application.properties`:** novo `app.validar-cpf-digitos`, desligado por padrão.
-- **`docs/migracoes.sql` (novo):** só blocos comentados, ver item 2.
-- **Testes:** `ValidacoesCadastroTest` (6, novo) e 5 testes novos em `ErrosDasRotasTest`.
-- **`CLAUDE.md` e `PENDENCIAS`:** item 3 marcado como feito, com a pendência dos tamanhos.
 
-**2. SQL antes do deploy:** nenhum obrigatório. Em `docs/migracoes.sql` ficaram, comentados:
-- consultas que só leem, para ver os índices únicos que já existem e procurar CPF, placa e login repetidos;
-- a sugestão dos índices únicos (CPF só pelos números; placa ignorando vazia e veículo inativo), para criar só se as buscas por repetidos voltarem vazias;
-- a consulta 4, dos tamanhos de coluna, para você me mandar o resultado.
+*Etapa A: manutenção e ocorrência*
+- **Status da ocorrência:**
+  - `Ocorrencia` ganhou `status` e `resolvidaEm`.
+  - `OcorrenciaResponse` e `OcorrenciaDetalhadaResponse` ganharam `status` e `resolvidaEm`. A resposta detalhada também traz a lista `manutencoes` (id e status de cada manutenção ligada).
+  - Novos: `ManutencaoVinculadaResponse` e `AtualizarStatusOcorrenciaRequest`.
+- **`OcorrenciaService`:**
+  - **Regra pelas manutenções:** se todas as manutenções ligadas estão concluídas, a ocorrência vira `concluida` e guarda a hora em `resolvida_em`. Senão, fica `em_andamento`, e `resolvida_em` volta a ficar vazio.
+  - **Mudança à mão:** o gestor pode mudar o status.
+  - **Log:** toda mudança grava um log `OCORRENCIA_STATUS`.
+  - **Filtro:** a lista aceita filtro por status.
+- **`OcorrenciaController`:**
+  - Nova rota `PUT /ocorrencias/{id}/status`.
+  - `GET /ocorrencias?status=` filtra a lista.
+- **`ManutencaoService`:** recebeu `@Transactional`, ou seja, ou grava tudo ou não grava nada.
+  - **Ao abrir:** confere se a ocorrência informada existe antes de gravar.
+  - **Ao abrir e ao mudar o status:** recalcula o status da ocorrência.
+  - **Item 19, status do veículo:** se o veículo tem outra manutenção aberta, fica `em_manutencao`. Senão, se tem diário aberto, fica `em_uso`. Senão, fica `disponivel`.
+  - **Log:** grava o login de quem está autenticado. Sem token, grava "sistema".
+- **`AtualizarStatusRequest`:** o status da manutenção só aceita `aberta`, `em_andamento` ou `concluida`.
 
-**3. Variáveis no Render:** nenhuma nova obrigatória. `APP_VALIDAR_CPF_DIGITOS=true` liga a conferência dos dígitos do CPF quando você quiser, sem novo deploy de código.
+*Etapa B: os outros fluxos*
+- **Transações:** abrir e fechar diário, abastecimento e registrar ocorrência passaram a gravar tudo ou nada. A lógica não mudou.
+- **`LogService`:**
+  - O log grava numa transação separada.
+  - Se gravar o log falhar, o erro vai só para o log do servidor e não desfaz nem derruba a operação principal.
+  - Ganhou `loginAutenticado()`, para saber quem fez a ação.
+- **Classes abertas:** confirmei que o plugin `kotlin-spring` está no build, então os services aceitam `@Transactional`. Um teste confere a anotação em cada método.
+- **Fechar diário:** recusa medidor final menor que o inicial, com a mensagem combinada.
+- **Validações:** litros precisa ser maior que 0, e a quantidade de peça precisa ser pelo menos 1. Valor do abastecimento, custo de mão de obra e valor unitário da peça continuam aceitando 0.
+- **Log do abastecimento:** o " (Comboio)" agora aparece mesmo quando há posto.
+
+*Testes e documentos*
+- **Testes novos:** `ManutencaoOcorrenciaTest` (8) e `EtapaBTest` (3). Mais 2 casos em `LogServiceTest` e 5 em `ErrosDasRotasTest`.
+- **Documentos:** `docs/migracoes.sql`, `PLANO-API.md`, `PENDENCIAS-API.md` e `CLAUDE.md`.
+
+**2. SQL ANTES do deploy (obrigatório)**
+```sql
+ALTER TABLE ocorrencias ADD COLUMN IF NOT EXISTS status varchar(20) NOT NULL DEFAULT 'aberta';
+ALTER TABLE ocorrencias ADD COLUMN IF NOT EXISTS resolvida_em timestamp;
+```
+Pode rodar mesmo com o código antigo no ar: ele ignora as colunas novas.
+
+O **backfill** (marcar as ocorrências antigas conforme as manutenções delas) está comentado no mesmo bloco de `docs/migracoes.sql` e espera a sua autorização. É o texto do item 18, com dois acréscimos:
+- ele também preenche `resolvida_em` com a hora da última manutenção concluída;
+- ele roda dentro de BEGIN/COMMIT, para você conferir antes de confirmar.
+
+**3. Variáveis no Render:** nenhuma.
 
 **4. Testes e jar**
-- `.\gradlew.bat test`: BUILD SUCCESSFUL, 39 passaram, 0 falhas, 1 desligado.
+- `.\gradlew.bat test`: BUILD SUCCESSFUL, 63 passaram, 0 falhas, 1 desligado.
 - `.\gradlew.bat bootJar`: BUILD SUCCESSFUL. **O jar mudou: sim.**
 
 **5. O que testar**
-- `POST /abastecimentos` com `"litros": -1` → 400 `{"erro":"Campo 'litros' não pode ser negativo."}`
-- `POST /diarios/fechar/{login}` com `"medidorFinal": -5` → 400 `{"erro":"Campo 'medidorFinal' não pode ser negativo."}`
-- `POST /auth/cadastrar` com um CPF que já existe (com ou sem máscara) → 400 `{"erro":"Já existe um usuário com este CPF."}`
-- `POST /auth/cadastrar` com `"perfil": "admin"` → 400 `{"erro":"Campo 'perfil' deve ser gestor ou motorista."}`
-- `POST /veiculos` com a placa de outro veículo ativo, escrita em minúsculas e com traço → 400 `{"erro":"Já existe um veículo com esta placa."}`
-- `PUT /veiculos/{id}` mantendo a mesma placa → 200, como antes.
-- Cadastrar dois veículos sem placa → os dois aceitos.
-- `POST /postos` com `"nome": "  "` → 400 `{"erro":"Campo 'nome' é obrigatório."}`
+- Criar uma ocorrência e abrir uma manutenção com `ocorrenciaId` → `GET /ocorrencias` mostra `"status": "em_andamento"`.
+- Concluir a manutenção (`PUT /manutencoes/{id}/status` com `"concluida"`) → ocorrência `concluida` e `resolvidaEm` preenchido. O veículo fica `disponivel` (ou `em_uso`, se ele tiver diário aberto).
+- Com duas manutenções na mesma ocorrência, concluir só uma → a ocorrência continua `em_andamento` e o veículo continua `em_manutencao`.
+- `PUT /manutencoes/{id}/status` com `"finalizada"` → 400 `{"erro":"Campo 'status' deve ser aberta, em_andamento ou concluida."}`.
+- `PUT /ocorrencias/{id}/status` com `"descartada"` → 200. Com `"resolvida"` → 400. Com um id que não existe → 404 `{"erro":"Ocorrência não encontrada."}`.
+- `GET /ocorrencias?status=aberta` → só as ocorrências abertas.
+- `POST /diarios/fechar/{login}` com medidor menor que o inicial → 400 com a mensagem combinada.
+- `POST /abastecimentos` com `"litros": 0` → 400. Com `"valorTotal": 0` → 200.
+- Em `/logs`, a manutenção feita pelo front com token aparece com o login do gestor, e não mais "sistema".
 
 **6. Impacto no front e no app**
-- **Muda status (é o objetivo da parte, mas confirme):** em `POST /mecanicos`, `POST /postos` e `POST /checklist/itens`, nome ou descrição em branco antes gravava e respondia 200. Agora responde 400.
-- **Front:** confira se o cadastro de usuário envia o perfil em minúsculas (`gestor`/`motorista`).
-- **Telas de veículo:** veículo sem placa passa a vir com `placa: null` em vez de `""`. Confira se alguma tela quebra com isso.
-- **App:** se alguma tela mandar `tipoCombustivel`, `tipo` ou `descricao` em branco, agora recebe 400 com a mensagem. Antes gravava vazio.
+- **Só campos novos:** nada quebra.
+- **Front:** pode mostrar o status da ocorrência, o filtro, a mudança à mão e o "Vincular a uma ocorrência".
+- **App:** pode mostrar o status da ocorrência e precisa recusar litros = 0 e quantidade 0 antes de enviar.
+- **O que mudou de comportamento:**
+  - Status de manutenção fora dos três valores, que antes era gravado, agora dá 400.
+  - Medidor final menor que o inicial, que antes era gravado, agora dá 400.
 
-**7. Como desfazer:** sem SQL, basta `git revert` do commit da Parte 2 e o deploy. Para só desligar a conferência dos dígitos do CPF, a variável já basta.
+**7. Como desfazer:** `git revert` do commit e novo deploy. As colunas novas podem ficar no banco, porque o código antigo funciona com elas. Não apague as colunas.
 
 **8. Achados fora do escopo (não mexi)**
-- **Decisão sua: placa de veículo inativo.** A API deixa cadastrar uma placa que pertence a um veículo inativo, porque não existe rota para reativar veículo. Se preferir bloquear, é uma linha.
-- **Litros zero e quantidade zero são aceitos.** Recusei só negativo, como o plano pede. Recusar zero é uma linha por campo.
-- **Medidor final menor que o inicial não é recusado.** O percorrido fica negativo. Sugiro recusar na Parte 3 ou 5, mas antes você precisa decidir se existe troca de hodômetro.
-- **Status de manutenção ainda aceita qualquer texto:** `PUT /manutencoes/{id}/status` ainda aceita qualquer valor. Fica para a Parte 3, como já está no plano.
-- **CPF só no cadastro:** não existe rota para editar CPF, então a conferência de repetido só acontece no cadastro.
+- **Log da abertura de diário:** tem o mesmo erro de parênteses do log do abastecimento. A observação some do texto quando há destino.
+- **Veículo inativo pode virar disponível:** concluir uma manutenção de um veículo inativo deixa ele `disponivel`, como já acontecia antes.
+- **Log de ativar/desativar usuário:** ainda grava "sistema". Dá para usar o login do token, como na manutenção.
+- **Log que fica sem a operação:** como o log grava numa transação separada, se a operação principal falhar depois de o log ter sido gravado, o log fica registrado sem a operação ter acontecido. Nos fluxos atuais o log é sempre o último passo antes da resposta, então o risco é baixo.
+- **Filtro de status sem conferência:** `GET /ocorrencias?status=` com um valor que não existe devolve lista vazia, sem erro.
+- **Lista de ocorrências mais pesada:** a resposta detalhada faz mais uma consulta por ocorrência, para buscar as manutenções ligadas. Isso entra nas consultas repetidas da Parte 4.
 
-**Ordem de deploy:** rodar o SQL (nenhum obrigatório), commitar com o jar e `docs/migracoes.sql`, dar push, esperar o Render e testar o item 5. Antes disso, se ainda não fez, confira no Render a variável `SPRING_JPA_HIBERNATE_DDL_AUTO` da Parte 1.
+**Ordem de deploy (vale para os três blocos juntos):**
+1. Rodar o SQL do item 2.
+2. Commitar com o jar e dar push.
+3. Esperar o Render subir e testar o item 5.
+4. Depois do deploy, rodar o PASSO 0 e o PASSO 1 da 6A, usando como corte a hora deste deploy, e me mandar os resultados.
 
-Paro aqui. Para continuar, me mande o resultado da consulta 4 (para eu fechar os limites de tamanho) ou escreva "pode começar a parte 3".
+Paro aqui. Quando quiser, autorize o backfill da Parte 3, me mande o resultado do PASSO 1 da 6A, ou escreva "pode começar a parte 4".

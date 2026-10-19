@@ -24,5 +24,5 @@ data class ChecklistResposta(
     val observacao: String? = null,
 
     @Column(name = "registrado_em", nullable = false)
-    val registradoEm: java.time.LocalDateTime = java.time.LocalDateTime.now()
+    val registradoEm: java.time.LocalDateTime = java.time.LocalDateTime.now(java.time.ZoneOffset.UTC)
 )

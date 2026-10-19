@@ -10,5 +10,7 @@ data class OcorrenciaResponse(
     val descricao: String,
     val latitude: Double?,
     val longitude: Double?,
-    val registradoEm: LocalDateTime
+    val registradoEm: LocalDateTime,
+    val status: String = "aberta",
+    val resolvidaEm: LocalDateTime? = null
 )

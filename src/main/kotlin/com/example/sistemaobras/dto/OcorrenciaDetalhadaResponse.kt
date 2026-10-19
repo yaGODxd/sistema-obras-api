@@ -16,5 +16,14 @@ data class OcorrenciaDetalhadaResponse(
     val motoristaFoto: String? = null,
     val veiculoId: UUID?,
     val veiculoDescricao: String,
-    val veiculoPlaca: String?
+    val veiculoPlaca: String?,
+    val status: String = "aberta",
+    val resolvidaEm: LocalDateTime? = null,
+    val manutencoes: List<ManutencaoVinculadaResponse> = emptyList()
+)
+
+// Manutenção ligada a uma ocorrência (só o necessário para a tela de ocorrências).
+data class ManutencaoVinculadaResponse(
+    val id: UUID?,
+    val status: String
 )

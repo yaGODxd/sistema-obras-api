@@ -65,10 +65,11 @@ Depois PARE e espere "pode começar a parte 1".
 - Unicidade: antes de gravar, checar login, placa e CPF e responder com mensagem clara (status conforme regra 2). Placa é OPCIONAL (máquinas não têm). Em docs/migracoes.sql, índices únicos só como sugestão COMENTADA, junto com a consulta que mostra duplicados já existentes (eu decido se rodo).
 - CPF: crie a validação de dígitos verificadores, mas DESLIGADA por padrão (propriedade app.validar-cpf-digitos=false, ligável por variável de ambiente). Estamos em fase de testes. Combina com o interruptor validarDigitosCpf do front.
 
-## PARTE 3 - Ocorrência com status + manutenção (itens 18, 19 e 16)
+## PARTE 3 - Ocorrência com status + manutenção (itens 18, 19 e 16) - FEITA em 19/10 (falta SQL e deploy)
 ### Etapa A - manutenção e ocorrência
 - Siga o item 18 do docs/PENDENCIAS-API.md: coluna status (texto, NÃO enum) em ocorrencias, valores aberta, em_andamento e concluida (diga no plano se vale incluir "descartada"), mais resolvida_em; SQL do ALTER e do backfill em docs/migracoes.sql.
 - Regras: manutenção criada com ocorrenciaId deixa a ocorrência em_andamento; ao concluir a manutenção, a ocorrência vira concluida SOMENTE se todas as manutenções vinculadas estiverem concluídas; se a manutenção for reaberta, a ocorrência volta para em_andamento. Novo PUT /ocorrencias/{id}/status para o gestor mudar à mão (valor desconhecido é recusado com {"erro"}). Acrescente status e resolvidaEm nas respostas de ocorrência e um filtro ?status= na listagem.
+- Status de manutenção (decisão 19/10): PUT /manutencoes/{id}/status só aceita aberta, em_andamento e concluida; outro valor é recusado com {"erro"} (status da rota: 400, como hoje).
 - Item 19: ao concluir uma manutenção, o veículo só volta para disponivel se NÃO houver outra manutenção do mesmo veículo não concluída (e se tiver diário aberto, fica em_uso).
 - Item 16: @Transactional nos fluxos de escrita com vários passos (manutenção, ocorrência e log na MESMA transação); logar a exceção em vez de engolir; usar o login do usuário autenticado no log quando houver token válido, "sistema" quando não houver.
 - Log novo OCORRENCIA_STATUS.
@@ -78,6 +79,10 @@ Depois PARE e espere "pode começar a parte 1".
 - logService.registrar roda em transação própria (Propagation.REQUIRES_NEW) e uma falha no log NÃO pode desfazer a operação principal: capturar a exceção FORA da transação do log (no Spring, exceção dentro da mesma transação a marca como rollback mesmo se capturada). Vale também para a Etapa A.
 - Conferir que os services são classes abertas (plugin kotlin-spring abre classes @Service; confirmar no build).
 - Corrigir a precedência no texto do log ABASTECIMENTO (sufixo " (Comboio)" deve aparecer também quando há posto).
+- Validações decididas em 19/10:
+  - Recusar litros = 0 (litros > 0) e quantidade de peça menor que 1.
+  - NÃO recusar valorTotal = 0 (comboio pode não ter valor), custo de mão de obra = 0, nem valor unitário de peça = 0 (garantia).
+  - Fechar diário: recusar medidor final menor que o inicial com {"erro": "O medidor final não pode ser menor que o medidor inicial."} (vale para as duas rotas de fechar). Troca de hodômetro fica como limitação documentada; exceção só se a Secretaria pedir.
 
 ## PARTE 4 - Respostas mais completas e consultas mais leves (itens 10, 13 e resto do 17)
 - VeiculoResponse: tipoId, tipoNome e tipoMedidor REAIS nas listas (hoje vão vazios; confira no front quem depende disso); tipoId opcional na edição.
@@ -85,6 +90,7 @@ Depois PARE e espere "pode começar a parte 1".
 - AbastecimentoResponse: informar se foi abastecimento no comboio.
 - N+1: foto na tela de logs e peças/veículo na lista de manutenções. Resolver com JOIN ou busca em lote e mostrar no relatório a contagem de consultas antes e depois.
 - OPCIONAL (avaliar e propor): PUT /manutencoes/pecas/{pecaId} para editar peça (hoje só existe adicionar e remover).
+- OPCIONAL (decisão 19/10): rota para reativar veículo inativo (hoje DELETE só inativa e não há volta). A placa de veículo inativo continua liberada para novo cadastro.
 - Só acrescentar campos.
 
 ## PARTE 5 - Segurança: rotas atrás do JWT, bloqueios no servidor, CORS (itens 8, 9, 15 e 4)
@@ -99,8 +105,17 @@ Depois PARE e espere "pode começar a parte 1".
 
 ## PARTE 6 - Horário real do evento (uso offline) e fuso (itens 1, 5 e 6)
 - Publicar a API ANTES do app. Banco guarda UTC.
-- Dividida em 6A (fuso: conversão do registradoEm, corte de dia/mês, serialização de datas) e 6B (horário do evento capturado no celular, uso offline). Os itens abaixo valem para as duas; a 6B tem seção própria.
-- Corrija a conversão do registradoEm (abastecimento e ocorrência) de America/Sao_Paulo para UTC. Proponha no plano o que fazer com registros antigos (só SQL opcional, nada automático).
+- Dividida em 6A e 6B. A 6A foi executada ANTES da Parte 3 (decisão 19/10). A "Parte 6 antiga" é a 6B.
+
+### Parte 6A - fuso (FEITA em 19/10, falta deploy e a correção dos registros antigos)
+- Não exige mudança no app (o epoch é um instante absoluto).
+- (a) registradoEm convertido com ZoneOffset.UTC em AbastecimentoService e OcorrenciaService.
+- (b) Hora do servidor sempre UTC explícito: LocalDateTime.now(ZoneOffset.UTC) no código; fuso padrão da aplicação fixado em UTC no main(); cada conexão do banco com SET TIME ZONE 'UTC' (o NOW() do SQL grava UTC).
+- (c) Registros antigos: docs/migracoes.sql, bloco "Parte 6A". PASSO 1 = pré-visualização (contagem e amostra) casando cada registro com o log da mesma requisição; PASSO 2 = UPDATE +3 h só nos classificados "corrigir_mais_3h", em bloco separado e comentado, com tabela de controle para desfazer. Yago roda o PASSO 1, mostra o resultado e só então autoriza o PASSO 2. Abastecimento de diário já assinado NÃO é corrigido (entra no resumo da assinatura).
+- Ficaram para depois (definir se entram na 6B ou numa 6C): corte de dia (/logs) e de mês (/diarios) em America/Sao_Paulo e serialização de datas com fuso.
+
+### Itens comuns
+- Corrija a conversão do registradoEm (abastecimento e ocorrência) de America/Sao_Paulo para UTC. (Feito na 6A.)
 - Campos opcionais novos ocorridoEm (ISO-8601 UTC com Z) e idLocal (UUID) nos eventos listados na 6B. Reenvio com o mesmo idLocal devolve o registro existente, sem duplicar e sem erro. Sem o campo, usa now() como hoje.
 
 ### Parte 6B - horário do evento capturado no celular (decisão do Yago, 19/10)

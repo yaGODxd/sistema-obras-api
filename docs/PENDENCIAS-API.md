@@ -9,7 +9,8 @@ Regra de deploy: o Dockerfile faz COPY build/libs/*.jar. Depois de mudar o códi
 - Parte 3: ocorrência com status + manutenção (itens 18, 19, 16)
 - Parte 4: respostas mais completas e consultas mais leves (itens 10, 13, resto do 17)
 - Parte 5: rotas atrás do JWT, bloqueios no servidor, CORS (itens 8, 9, 15, 4) -- precisa conferir o app antes
-- Parte 6: horário real do evento e fuso (itens 1, 5, 6) -- publicar a API antes do app
+- Parte 6A: fuso do registradoEm e hora do servidor em UTC (item 1, parte) -- FEITA em 19/10, ANTES da Parte 3
+- Parte 6B: horário do evento capturado no celular, uso offline (itens 1, 5, 6) -- publicar a API antes do app
 - Parte 7: Swagger/OpenAPI (item 11), por último, para refletir o contrato final
 - Parte 8: operação (item 12): backup, senha do banco, README, Dockerfile multi-stage (só proposta)
 - Itens 7 e 14 (fotos) ficam fora deste ciclo: 7 é condicional ao tamanho; 14 espera o app.
@@ -17,6 +18,7 @@ Regra de deploy: o Dockerfile faz COPY build/libs/*.jar. Depois de mudar o códi
 ## Itens
 
 1. Horário do evento (uso offline)
+   - FEITO (Parte 6A, 19/10, falta deploy): registradoEm convertido com UTC; hora do servidor em UTC explícito (código, fuso da aplicação e sessão do banco). Registros antigos: pré-visualização e correção (+3 h, só com autorização) no bloco "Parte 6A" de docs/migracoes.sql. Abastecimentos de diário assinado não são corrigidos (entram no resumo da assinatura).
    - ACHADO (18/10, lendo o código): AbastecimentoRequest e OcorrenciaRequest JÁ aceitam `registradoEm` (Long, epoch em milissegundos). O service converte com ZoneId America/Sao_Paulo e grava hora LOCAL de Brasília. Sem o campo, grava LocalDateTime.now() (UTC no Render). Resultado: o banco mistura os dois fusos (registros com registradoEm = Brasília; o resto = UTC). Corrigir: converter com ZoneOffset.UTC. Registros antigos enviados com registradoEm ficam 3 h diferentes: avaliar migração.
    - Abrir diário, fechar diário e rastreamento NÃO têm campo de horário (usam o relógio do servidor, UTC).
    - DECISÃO 19/10 (Parte 6B): todo horário de evento é o capturado pelo celular no momento da ação (instante UTC). Inclui abrir/fechar TURNO e respostas de CHECKLIST, além de diário, abastecimento, ocorrência e rastreamento. A hora da ASSINATURA continua sendo a do servidor. Hoje turno (NOW() no TurnoRepository) e checklist (LocalDateTime.now() na entidade) também usam o relógio do servidor. Avaliar: hora do recebimento, enviadoEm para estimar desvio do relógio do aparelho, horário no futuro, evento fora da janela aberto_em..fechado_em do diário. Cuidado com GET /rastreamento/posicoes (filtro NOW() - 2 min).
@@ -53,7 +55,10 @@ Regra de deploy: o Dockerfile faz COPY build/libs/*.jar. Depois de mudar o códi
    - Recusar valores negativos: medidor, custos, valor, quantidade de peça. Usar Bean Validation (@PositiveOrZero etc.).
    - Confirmar se placa e CPF têm restrição de unicidade no banco; se não, criar.
    - FEITO (Parte 2, 19/10, falta deploy): Bean Validation nos DTOs de entrada (obrigatórios em branco, valores negativos, perfil gestor|motorista); API confere login, CPF (só dígitos) e placa (sem traço, ignora vazia e inativo) antes de gravar; validação de dígitos do CPF pronta e DESLIGADA (APP_VALIDAR_CPF_DIGITOS=true liga); placa vazia passa a ser gravada como null. Índices únicos só como sugestão comentada em docs/migracoes.sql.
-   - PENDENTE: limites de tamanho dos textos (@Size). Depende do Yago rodar a consulta 4 de docs/migracoes.sql (information_schema). Até lá, texto longo demais cai no banco e volta "Algum texto passou do tamanho máximo permitido."
+   - FEITO (19/10, com o resultado do information_schema): limites @Size nos DTOs iguais às colunas (quase todas varchar(255); senha até 72 por causa do BCrypt). LogService corta textos do log em 255 (a descrição da ocorrência podia estourar logs.descricao DEPOIS de gravar a ocorrência).
+   - FEITO (Parte 3, etapa B, 19/10, falta deploy): litros > 0, quantidade de peça >= 1, medidor final >= inicial; valor/custo/valor unitário zero aceitos.
+   - DECISÕES 19/10 (para a Parte 3, etapa B): recusar litros = 0 e quantidade de peça < 1; aceitar valorTotal = 0, custo de mão de obra = 0 e valor unitário = 0 (garantia); recusar medidor final menor que o inicial ({"erro": "O medidor final não pode ser menor que o medidor inicial."}); troca de hodômetro = limitação documentada. Status de manutenção validado na Parte 3 (aberta, em_andamento, concluida). Placa de veículo inativo continua liberada para novo cadastro.
+   - ACHADO 19/10 (decidir): usuarios.foto_perfil é varchar(255), mas a foto é base64 (muito maior). A API NÃO limita a foto (decisão de não reduzir foto). Diagnóstico e ALTER sugerido (comentados) no bloco 5 de docs/migracoes.sql.
 
 4. CORS
    - Pendência registrada na Parte 2 do front. Recuperar o texto exato no relatório do Claude Code e conferir se Authorization está em allowedHeaders.
@@ -78,6 +83,7 @@ Regra de deploy: o Dockerfile faz COPY build/libs/*.jar. Depois de mudar o códi
 
 10. VeiculoResponse e edição
 - Incluir tipoId na resposta. Tornar tipoId opcional na edição (o UPDATE já o ignora).
+- OPCIONAL (Parte 4, decisão 19/10): rota para reativar veículo inativo (DELETE só inativa e não há volta pela API).
 - Status de veículo conhecidos: disponivel, em_uso, em_manutencao, inativo (DELETE só marca inativo).
 - Achado 19/10: VeiculoService.toResponse devolve tipoNome = "" e tipoMedidor = "" fixos nas listas de veículos (só a listagem de veículos em uso traz o tipoNome). Devolver os valores reais (JOIN com tipo_veiculo) e conferir no front quem depende disso.
 
@@ -116,6 +122,7 @@ Regra de deploy: o Dockerfile faz COPY build/libs/*.jar. Depois de mudar o códi
 - DECIDIDO 19/10 (Parte 5): recusar SOMENTE se existir diário com status aberto, com {"erro": "Você tem um diário aberto. Feche o diário antes de sair de serviço."} e o mesmo status de erro que a rota usa hoje (400). Diário fechado pendente de assinatura NÃO impede sair de serviço (o bloqueio dele é ao abrir o próximo).
 
 16. Manutenção responde 400 DEPOIS de gravar (achado 18/10) -- CAUSA CONFIRMADA E CORRIGIDA NO BANCO
+- FEITO (Parte 3, 19/10, falta deploy): @Transactional em manutenção (abrir/status), ocorrência (registrar/status), abrir/fechar diário e abastecimento; log em transação própria (REQUIRES_NEW) e falha no log só vai para o log do servidor; log com o login do token quando houver, "sistema" quando não; controllers já não engolem exceção (Parte 1).
 - Causa: o enum status_veiculo não tinha o valor em_manutencao. Corrigido em 18/10 com ALTER TYPE status_veiculo ADD VALUE IF NOT EXISTS 'em_manutencao'. O aviso sumiu.
 - Efeito colateral a conferir: manutenções abertas antes da correção podem estar com o veículo em outro status e sem log MANUTENCAO_ABERTA.
 - Falta ainda (melhorias): @Transactional, logar a exceção no controller, log com login real. Guardar as migrações num arquivo do repositório (docs/migracoes.sql).
@@ -133,6 +140,7 @@ Regra de deploy: o Dockerfile faz COPY build/libs/*.jar. Depois de mudar o códi
 - Consultas repetidas: a tela de Logs consulta a foto do usuário uma vez por linha (findFotoByLogin dentro de toResponse); a lista de manutenções consulta peças e veículo uma vez por manutenção (toResponseSimples). Resolver com JOIN ou consulta em lote. Pesa no Render gratuito.
 
 18. Status nas ocorrências + conclusão automática pela manutenção (pedido do Yago, 19/10)
+- FEITO (Parte 3, 19/10, falta SQL + deploy): colunas status/resolvida_em (SQL antes do deploy em docs/migracoes.sql; backfill comentado, aguardando autorização); regras a-d e g; PUT /ocorrencias/{id}/status (aceita também "descartada"); status, resolvidaEm e manutencoes (id/status) nas respostas; filtro GET /ocorrencias?status=. Front e app: mostrar o status (depois do deploy).
 - Situação hoje (lendo o código): a tabela `ocorrencias` NÃO tem status (colunas: id, diario_id, tipo, descricao, latitude, longitude, registrado_em). O vínculo com manutenção JÁ existe: `manutencoes.ocorrencia_id` (Manutencao.ocorrenciaId, ManutencaoRequest.ocorrenciaId opcional, ManutencaoResponse.ocorrenciaId, e ManutencaoRepository.findByOcorrenciaId já existe). Só falta o lado da ocorrência.
 - Banco (migração idempotente, guardar em docs/migracoes.sql): `ALTER TABLE ocorrencias ADD COLUMN IF NOT EXISTS status varchar(20) NOT NULL DEFAULT 'aberta';` e, se quiser mostrar quando foi resolvida, `ALTER TABLE ocorrencias ADD COLUMN IF NOT EXISTS resolvida_em timestamp;`. Usar varchar e NÃO enum do Postgres (a lição do status_veiculo: enum sem o valor faz o UPDATE falhar).
 - Valores sugeridos: `aberta` (registrada pelo motorista, ainda sem providência), `em_andamento` (tem manutenção vinculada em andamento), `concluida` (resolvida). Opcional: `descartada` (gestor avalia que não precisa de ação).
@@ -155,6 +163,7 @@ Regra de deploy: o Dockerfile faz COPY build/libs/*.jar. Depois de mudar o códi
 - TCC: descrever o ciclo da ocorrência (aberta -> em andamento -> concluída) no capítulo de funcionalidades.
 
 19. Veículo volta a "disponivel" mesmo com outra manutenção aberta (achado lendo ManutencaoService, 19/10)
+- FEITO (Parte 3, 19/10, falta deploy): ao concluir, outra manutenção aberta -> em_manutencao; diário aberto -> em_uso; senão disponivel.
 - atualizarStatus, ao concluir uma manutenção, faz atualizarStatus(veiculo, "disponivel") sempre. Se o mesmo veículo tiver outra manutenção aberta ou em andamento, ele aparece como disponível e o motorista consegue abrir diário com ele.
 - Correção: ao concluir, só voltar para `disponivel` se NÃO existir outra manutenção do veículo com status diferente de concluida (e tratar o caso do veículo estar com diário aberto -> em_uso). Fazer junto com o item 18 (mesma função, mesma transação).
 

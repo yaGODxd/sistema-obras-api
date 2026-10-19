@@ -8,6 +8,7 @@ import com.example.sistemaobras.repository.AbastecimentoRepository
 import com.example.sistemaobras.repository.DiarioBordoRepository
 import com.example.sistemaobras.repository.UsuarioRepository
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
 
 @Service
@@ -18,6 +19,7 @@ class AbastecimentoService(
     private val logService: LogService
 ) {
 
+    @Transactional
     fun registrar(request: AbastecimentoRequest): AbastecimentoResponse {
         if (request.veiculoAbastecidoId != null) {
             val temDiario = diarioRepository.temDiarioAbertoPorVeiculo(request.veiculoAbastecidoId)
@@ -29,11 +31,10 @@ class AbastecimentoService(
         }
 
         val registradoEm = if (request.registradoEm != null)
-            java.time.Instant.ofEpochMilli(request.registradoEm)
-                .atZone(java.time.ZoneId.of("America/Sao_Paulo"))
-                .toLocalDateTime()
+            // registradoEm é um instante absoluto (epoch em ms): o banco guarda em UTC.
+            java.time.LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(request.registradoEm), java.time.ZoneOffset.UTC)
         else
-            java.time.LocalDateTime.now()
+            java.time.LocalDateTime.now(java.time.ZoneOffset.UTC)
 
         abastecimentoRepository.inserirAbastecimento(
             login = request.loginMotorista,
@@ -45,10 +46,11 @@ class AbastecimentoService(
             registradoEm = registradoEm
         )
 
+        // Parênteses: sem eles o " (Comboio)" sumia quando havia posto.
         val descLog = "Abastecimento registrado — ${request.tipoCombustivel}, " +
                 "${"%.1f".format(request.litros)} L, R$ ${"%.2f".format(request.valorTotal)}" +
-                if (!request.posto.isNullOrEmpty()) ", Posto: ${request.posto}" else "" +
-                        if (!request.veiculoAbastecidoId.isNullOrEmpty()) " (Comboio)" else ""
+                (if (!request.posto.isNullOrEmpty()) ", Posto: ${request.posto}" else "") +
+                (if (!request.veiculoAbastecidoId.isNullOrEmpty()) " (Comboio)" else "")
 
         logService.registrar(
             usuarioLogin = request.loginMotorista,

@@ -46,10 +46,10 @@ data class Veiculo(
     val chassi: String? = null,
 
     @Column(name = "criado_em", nullable = false)
-    val criadoEm: LocalDateTime = LocalDateTime.now(),
+    val criadoEm: LocalDateTime = LocalDateTime.now(java.time.ZoneOffset.UTC),
 
     @Column(name = "atualizado_em", nullable = false)
-    val atualizadoEm: LocalDateTime = LocalDateTime.now(),
+    val atualizadoEm: LocalDateTime = LocalDateTime.now(java.time.ZoneOffset.UTC),
 
     @Column(name = "comboio", nullable = false)
     val comboio: Boolean = false,

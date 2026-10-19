@@ -34,5 +34,5 @@ data class Abastecimento(
     val sincronizado: Boolean = false,
 
     @Column(name = "registrado_em", nullable = false)
-    val registradoEm: LocalDateTime = LocalDateTime.now()
+    val registradoEm: LocalDateTime = LocalDateTime.now(java.time.ZoneOffset.UTC)
 )
