@@ -1,5 +1,6 @@
 package com.example.sistemaobras.controller
 
+import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
 import com.example.sistemaobras.dto.AtualizarPerfilRequest
 import com.example.sistemaobras.dto.AtualizarUsuarioRequest
@@ -13,6 +14,7 @@ import com.example.sistemaobras.security.ControleAcesso
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 
+@Tag(name = "Usuários", description = "Perfil, dados e situação dos usuários. Motorista só vê os próprios dados.")
 @RestController
 @RequestMapping("/usuarios")
 class UsuarioController(

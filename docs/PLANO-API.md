@@ -155,7 +155,7 @@ Depois PARE e espere "pode começar a parte 1".
 
 ### Parte 6C - fuso na exibição (19/10)
 - FEITO: corte de dia de /logs (inicio/fim são dias de Brasília, convertidos para o intervalo UTC) e corte de mês/ano de /diarios, /diarios/resumo-mensal e /diarios/meus (EXTRACT sobre aberto_em AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo'). Resumo semanal (últimos 7 dias corridos) não depende de fuso.
-- PROPOSTA (aguarda OK): datas com fuso nas respostas, atrás do interruptor APP_DATAS_COM_FUSO (padrão false). Ver relatório da 6C.
+- FEITO (aprovado 19/10): datas com fuso nas respostas atrás do interruptor APP_DATAS_COM_FUSO (padrão false). Ligar só quando o app ler datas com Instant/OffsetDateTime.
 
 ### Parte 6B - andamento
 - ETAPA 0 (FEITA 19/10): consultas que liam "a.*"/"cr.*" por posição (3 listas de abastecimento e as respostas do checklist) passaram a ter colunas explícitas; fechar diário deixou de forçar o veículo para disponivel (o trigger cuida). Precisa ir ao ar ANTES do SQL 1 da 6B: com o código antigo, colunas novas nessas tabelas quebrariam as telas.
@@ -204,13 +204,13 @@ Com a fila offline, o app envia os eventos de cada diário SEPARADOS do momento 
 - Antes de propor mudança nas tabelas, me peça os resultados das consultas (information_schema e lista de triggers) e me diga exatamente quais rodar. Yago passa a lista de triggers nessa hora.
 - Corte de dia (/logs) e de mês (/diarios) em America/Sao_Paulo. Serialização de datas com fuso consistente: proponha uma forma compatível (o interceptor do front só normaliza texto SEM fuso) e liste o risco para o app.
 
-## PARTE 7 - Swagger/OpenAPI (item 11) - só depois das Partes 1 e 5
+## PARTE 7 - Swagger/OpenAPI (item 11) - só depois das Partes 1 e 5 - FEITA em 19/10 (springdoc 3.1.1, construída sobre o Spring Boot 4.1.0; SWAGGER_ENABLED padrão false)
 - springdoc-openapi linha 3.x. Confirme a versão exata e a compatibilidade com o nosso Spring Boot ANTES de adicionar (peça OK).
 - Esquema Bearer JWT (botão Authorize), tags por assunto em português, descrições e exemplos dos DTOs principais, documentar o erro {"erro"} e os códigos de status.
 - Liberar /swagger-ui/** e /v3/api-docs/** na SecurityConfig; ligar e desligar por SWAGGER_ENABLED; gerar o jar de novo.
 - Objetivo: orientador, banca e outros devs entenderem a API.
 
-## PARTE 8 - Operação (item 12) - só plano e documentação
+## PARTE 8 - Operação (item 12) - só plano e documentação - FEITA em 19/10 (README.md, docs/OPERACAO.md, docs/PROPOSTA-DOCKERFILE.md)
 - Passo a passo em português simples (Windows/PowerShell) do pg_dump do banco do Render ANTES de ~16/11/2026, e de como trocar a senha do banco (a atual foi exposta) e atualizar a variável no Render.
 - README curto da API: como rodar, variáveis de ambiente, ordem SQL -> deploy.
 - PROPOSTA (sem executar) de Dockerfile multi-stage para o Render compilar sozinho e o jar parar de ser versionado, com riscos. Só executar se eu aprovar.

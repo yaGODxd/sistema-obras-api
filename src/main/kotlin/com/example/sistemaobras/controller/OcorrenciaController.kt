@@ -1,5 +1,6 @@
 package com.example.sistemaobras.controller
 
+import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
 import com.example.sistemaobras.dto.AtualizarStatusOcorrenciaRequest
 import com.example.sistemaobras.dto.OcorrenciaDetalhadaResponse
@@ -12,6 +13,7 @@ import com.example.sistemaobras.security.ControleAcesso
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 
+@Tag(name = "Ocorrências", description = "Registro pelo motorista, consultas e status (pendente, em_andamento, resolvida).")
 @RestController
 @RequestMapping("/ocorrencias")
 class OcorrenciaController(

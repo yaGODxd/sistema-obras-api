@@ -66,6 +66,8 @@ class SecurityConfig {
                 // Página interna de erros do Spring. Liberada para que 404 e 500
                 // apareçam como são, em vez de virarem 401.
                 auth.requestMatchers("/error").permitAll()
+                // Parte 7: documentação. Só existe com SWAGGER_ENABLED=true (senão 404).
+                auth.requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs", "/v3/api-docs/**").permitAll()
                 if (exigirJwt) matrizDePermissoes(auth) else regrasAntigas(auth)
             }
         return http.build()

@@ -28,6 +28,8 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("tools.jackson.module:jackson-module-kotlin")
+    // Parte 7: documentação da API (Swagger/OpenAPI). 3.1.1 é construída sobre o Spring Boot 4.1.0.
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1")
     runtimeOnly("org.postgresql:postgresql")
     testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
     testImplementation("org.springframework.boot:spring-boot-starter-security-oauth2-resource-server-test")

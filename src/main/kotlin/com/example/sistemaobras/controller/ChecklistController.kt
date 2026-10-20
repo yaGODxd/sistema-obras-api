@@ -1,5 +1,6 @@
 package com.example.sistemaobras.controller
 
+import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
 import com.example.sistemaobras.dto.*
 import com.example.sistemaobras.entity.ChecklistItem
@@ -14,6 +15,7 @@ import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import java.util.UUID
 
+@Tag(name = "Checklist", description = "Modelos, itens e respostas do checklist do diário.")
 @RestController
 @RequestMapping("/checklist")
 class ChecklistController(

@@ -70,7 +70,7 @@ Regra de deploy: o Dockerfile faz COPY build/libs/*.jar. Depois de mudar o códi
    - /logs (corte do dia) e /diarios (corte do mês) podem estar cortando em UTC. Decidir: America/Sao_Paulo. Pendência registrada na Parte 3 do front.
 
 6. Datas com fuso
-   - PROPOSTA (Parte 6C, 19/10): serializar com Z atrás do interruptor APP_DATAS_COM_FUSO (padrão false); ligar só depois de confirmar como o app lê as datas.
+   - FEITO (Parte 6C, 19/10): interruptor APP_DATAS_COM_FUSO (padrão false). Ligar só depois de confirmar que o app lê datas com fuso.
    - Hoje LocalDateTime sai sem fuso (ex.: 2026-10-18T13:08:00). Passar a serializar com Z/offset de forma consistente. O interceptor do front só mexe em texto sem fuso, então é compatível.
 
 7. Foto fora das listas (condicional)
@@ -96,6 +96,7 @@ Regra de deploy: o Dockerfile faz COPY build/libs/*.jar. Depois de mudar o códi
 - Achado 19/10: VeiculoService.toResponse devolve tipoNome = "" e tipoMedidor = "" fixos nas listas de veículos (só a listagem de veículos em uso traz o tipoNome). Devolver os valores reais (JOIN com tipo_veiculo) e conferir no front quem depende disso.
 
 11. Swagger / OpenAPI (novo, pedido do Yago)
+- FEITO (Parte 7, 19/10): springdoc-openapi-starter-webmvc-ui 3.1.1; /swagger-ui.html e /v3/api-docs liberados na segurança; botão Authorize (Bearer JWT); tags em português; exemplos nos DTOs principais; erro {"erro","codigo"} e tabela de status/códigos na descrição. Ligar com SWAGGER_ENABLED=true.
 - Objetivo: pessoas de fora entenderem o funcionamento da API (orientador, banca, outros devs).
 - Usar springdoc-openapi, linha 3.x (a 2.x é para Spring Boot 3). Na página oficial a versão atual é a 3.1.1: implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1"). Conferir a versão e a compatibilidade com o Spring Boot 4.1 na hora de adicionar.
 - Esquema de segurança Bearer JWT (botão Authorize), tags por assunto (Autenticação, Diários, Assinatura, Veículos...), descrições e exemplos, e documentar o formato de erro {"erro": "..."}.
@@ -104,6 +105,7 @@ Regra de deploy: o Dockerfile faz COPY build/libs/*.jar. Depois de mudar o códi
 - Lembrar de gerar o jar de novo.
 
 12. Operação
+- FEITO (Parte 8, 19/10): docs/OPERACAO.md (backup com pg_dump, conferência, troca de senha/mudança de banco, variáveis no Render), README.md e docs/PROPOSTA-DOCKERFILE.md (não aplicada). PENDENTE com o Yago: fazer o backup antes de ~16/11/2026.
 - Backup do Postgres do Render ANTES de ~16/11/2026 (o banco gratuito expira): pg_dump -h HOST -U USER -d DB --no-owner --no-privileges -f "C:\Users\yagom\backup-sgfe.sql"
 - Trocar a senha do banco que foi exposta no chat.
 - Futuro: Dockerfile multi-stage (compilar no Render) para não precisar versionar o jar.

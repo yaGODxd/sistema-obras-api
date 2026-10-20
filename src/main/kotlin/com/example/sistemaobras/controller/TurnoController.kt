@@ -1,5 +1,6 @@
 package com.example.sistemaobras.controller
 
+import io.swagger.v3.oas.annotations.tags.Tag
 import com.example.sistemaobras.dto.TurnoRequest
 import com.example.sistemaobras.dto.TurnoResponse
 import com.example.sistemaobras.exception.StatusErroFixo
@@ -8,6 +9,7 @@ import com.example.sistemaobras.security.ControleAcesso
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 
+@Tag(name = "Turnos", description = "Entrar e sair de serviço (motorista). Aceita ocorridoEm e idLocal.")
 @RestController
 @RequestMapping("/turnos")
 class TurnoController(

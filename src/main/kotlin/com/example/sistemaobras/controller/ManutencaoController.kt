@@ -1,5 +1,6 @@
 package com.example.sistemaobras.controller
 
+import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
 import com.example.sistemaobras.dto.*
 import com.example.sistemaobras.exception.StatusErroFixo
@@ -7,6 +8,7 @@ import com.example.sistemaobras.service.ManutencaoService
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 
+@Tag(name = "Manutenções", description = "Manutenções, peças e status (aberta, em_andamento, concluida). Só gestor.")
 @RestController
 @RequestMapping("/manutencoes")
 class ManutencaoController(

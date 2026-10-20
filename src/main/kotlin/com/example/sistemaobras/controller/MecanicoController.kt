@@ -1,5 +1,6 @@
 package com.example.sistemaobras.controller
 
+import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
 import com.example.sistemaobras.dto.MecanicoRequest
 import com.example.sistemaobras.dto.MecanicoResponse
@@ -10,6 +11,7 @@ import com.example.sistemaobras.repository.MecanicoRepository
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 
+@Tag(name = "Cadastros auxiliares", description = "Mecânicos, postos e secretarias.")
 @RestController
 @RequestMapping("/mecanicos")
 class MecanicoController(private val mecanicoRepository: MecanicoRepository) {

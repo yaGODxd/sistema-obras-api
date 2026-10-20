@@ -1,5 +1,7 @@
 package com.example.sistemaobras.controller
 
+import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
 import com.example.sistemaobras.dto.AbastecimentoDetalhadoResponse
 import com.example.sistemaobras.dto.AbastecimentoRequest
@@ -11,6 +13,7 @@ import com.example.sistemaobras.security.ControleAcesso
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 
+@Tag(name = "Abastecimentos", description = "Registro (inclusive comboio e offline) e consultas.")
 @RestController
 @RequestMapping("/abastecimentos")
 class AbastecimentoController(
@@ -18,6 +21,11 @@ class AbastecimentoController(
     private val diarioDoEvento: DiarioDoEvento
 ) {
 
+    @Operation(
+        summary = "Registrar abastecimento (motorista)",
+        description = "Diário: diarioId; no comboio (veiculoAbastecidoId) o diário do veículo abastecido no horário do evento; " +
+            "senão o diário aberto agora. Diário assinado: DIARIO_ASSINADO. Erros: 400 (com codigo)."
+    )
     @PostMapping
     @StatusErroFixo(400)
     fun registrar(@Valid @RequestBody request: AbastecimentoRequest): ResponseEntity<AbastecimentoResponse> {

@@ -1,5 +1,6 @@
 package com.example.sistemaobras.controller
 
+import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
 import com.example.sistemaobras.dto.VeiculoEmUsoResponse
 import com.example.sistemaobras.dto.VeiculoRequest
@@ -9,6 +10,7 @@ import com.example.sistemaobras.service.VeiculoService
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 
+@Tag(name = "Veículos", description = "Frota: listas, cadastro, edição, inativar e reativar.")
 @RestController
 @RequestMapping("/veiculos")
 class VeiculoController(

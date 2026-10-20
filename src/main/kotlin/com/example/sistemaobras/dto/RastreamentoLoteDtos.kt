@@ -1,5 +1,6 @@
 package com.example.sistemaobras.dto
 
+import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
@@ -7,9 +8,11 @@ import jakarta.validation.constraints.NotNull
 // POST /rastreamento/lote (Parte 6B): pontos guardados no celular durante o uso offline.
 // No máximo 200 pontos por chamada (acima disso: 400 LOTE_GRANDE_DEMAIS).
 data class RastreamentoLoteRequest(
+    @field:Schema(description = "Diário dos pontos (id devolvido ao abrir).", example = "3fa85f64-5717-4562-b3fc-2c963f66afa6")
     @field:NotBlank(message = MensagensValidacao.OBRIGATORIO)
     val diarioId: String,
     val enviadoEm: String? = null,
+    @field:Schema(description = "Até 200 pontos, na ordem em que foram capturados.")
     @field:NotNull(message = MensagensValidacao.OBRIGATORIO)
     @field:Valid
     val pontos: List<PontoLoteRequest>

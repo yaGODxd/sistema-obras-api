@@ -1,10 +1,12 @@
 package com.example.sistemaobras.controller
 
+import io.swagger.v3.oas.annotations.tags.Tag
 import com.example.sistemaobras.dto.LogResponse
 import com.example.sistemaobras.service.LogService
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 
+@Tag(name = "Logs", description = "Histórico de ações (gestor). Filtro de dias no fuso de Brasília.")
 @RestController
 @RequestMapping("/logs")
 class LogController(
