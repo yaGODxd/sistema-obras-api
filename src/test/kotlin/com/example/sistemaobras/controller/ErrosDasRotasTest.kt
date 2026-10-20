@@ -257,10 +257,24 @@ class ErrosDasRotasTest {
     }
 
     @Test
-    fun `foto de perfil nao tem limite de tamanho na API`() {
+    fun `foto de perfil grande nao esbarra em limite do JSON`() {
         val foto = "a".repeat(5000)
         json(put("/usuarios/joao/perfil"), """{"fotoPerfil":"$foto"}""")
             .andExpect(status().isOk)
+    }
+
+    @Test
+    fun `foto de perfil invalida responde 400 com codigo nas duas rotas`() {
+        val erro = RegraNegocioException("A foto de perfil precisa ser uma imagem JPEG ou PNG.", CodigosErro.FOTO_PERFIL_INVALIDA)
+        given(usuarioService.atualizarPerfil(anyString(), qualquer())).willThrow(erro)
+        given(usuarioService.atualizarUsuario(anyString(), qualquer())).willThrow(erro)
+        json(put("/usuarios/joao/perfil"), """{"fotoPerfil":"lixo"}""")
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.codigo").value("FOTO_PERFIL_INVALIDA"))
+        json(put("/usuarios/joao"), """{"fotoPerfil":"lixo"}""")
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.erro").value("A foto de perfil precisa ser uma imagem JPEG ou PNG."))
+            .andExpect(jsonPath("$.codigo").value("FOTO_PERFIL_INVALIDA"))
     }
 
     @Test

@@ -14,6 +14,7 @@ import com.example.sistemaobras.security.JwtService
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.stereotype.Service
+import org.springframework.util.unit.DataSize
 
 @Service
 class UsuarioService(
@@ -22,7 +23,9 @@ class UsuarioService(
     private val logService: LogService,
     private val secretariaRepository: SecretariaRepository,
     // Desligado na fase de testes; ligar com APP_VALIDAR_CPF_DIGITOS=true.
-    @Value("\${app.validar-cpf-digitos:false}") private val validarCpfDigitos: Boolean = false
+    @Value("\${app.validar-cpf-digitos:false}") private val validarCpfDigitos: Boolean = false,
+    // Teto da foto de perfil (imagem já decodificada); APP_FOTO_PERFIL_MAX.
+    @Value("\${app.foto-perfil.max:512KB}") private val maxFotoPerfil: DataSize = DataSize.ofKilobytes(512)
 ) {
     private val bcrypt = BCryptPasswordEncoder()
 
@@ -108,7 +111,9 @@ class UsuarioService(
         usuarioRepository.findByLogin(login)
             ?: throw NaoEncontradoException("Usuário não encontrado.")
 
-        if (request.fotoPerfil != null) usuarioRepository.atualizarFoto(login, request.fotoPerfil)
+        // Valida a foto antes de gravar qualquer coisa; vazia/null não altera.
+        val foto = FotoPerfil.normalizar(request.fotoPerfil, maxFotoPerfil.toBytes())
+        if (foto != null) usuarioRepository.atualizarFoto(login, foto)
         if (request.nomeCompleto != null) {
             usuarioRepository.atualizarNome(login, request.nomeCompleto)
             logService.registrar(
@@ -125,11 +130,13 @@ class UsuarioService(
     fun atualizarUsuario(login: String, request: AtualizarUsuarioRequest): UsuarioResponse {
         usuarioRepository.findByLogin(login)
             ?: throw NaoEncontradoException("Usuário não encontrado.")
+        // null mantém a foto atual (COALESCE na consulta).
+        val foto = FotoPerfil.normalizar(request.fotoPerfil, maxFotoPerfil.toBytes())
 
         usuarioRepository.atualizarUsuarioCompleto(
             login = login,
             nomeCompleto = request.nomeCompleto,
-            fotoPerfil = request.fotoPerfil,
+            fotoPerfil = foto,
             matricula = request.matricula,
             vinculo = request.vinculo,
             secretariaId = request.secretariaId,

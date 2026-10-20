@@ -64,6 +64,7 @@
 -- Se o tipo for mesmo varchar(255), a correção (aditiva, não perde dados) seria:
 -- ALTER TABLE usuarios ALTER COLUMN foto_perfil TYPE text;
 -- (NÃO rode sem combinar: precisa do OK do Yago no texto exato.)
+-- -> APROVADO em 20/10: ver o bloco "Foto de perfil" no fim do arquivo.
 
 -- =====================================================================
 -- 19/10/2026 - Parte 6A (fuso): registros antigos gravados em hora de Brasília
@@ -607,3 +608,16 @@ ALTER TABLE fotos
 COMMIT;
 -- Os valores 'cupom_fiscal' e 'bomba_comboio' do enum NÃO saem (o PostgreSQL não remove valor de enum); ficam sem uso.
 */
+
+-- =====================================================================
+-- Foto de perfil (20/10, aprovado). Rodar ANTES do deploy da normalização da foto de perfil.
+-- Aditiva: varchar(255) -> text não perde dados e o código anterior continua funcionando.
+-- Pode rodar de novo sem efeito (a coluna já fica text).
+-- =====================================================================
+ALTER TABLE usuarios ALTER COLUMN foto_perfil TYPE text;
+
+-- Conferência (só leitura): deve mostrar data_type = text e character_maximum_length vazio.
+-- SELECT data_type, character_maximum_length FROM information_schema.columns
+-- WHERE table_name = 'usuarios' AND column_name = 'foto_perfil';
+-- ROLLBACK (só se nenhuma foto passar de 255 caracteres, o que não vai acontecer depois do uso):
+-- ALTER TABLE usuarios ALTER COLUMN foto_perfil TYPE varchar(255);

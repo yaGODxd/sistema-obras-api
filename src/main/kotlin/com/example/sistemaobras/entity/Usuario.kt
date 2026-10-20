@@ -29,7 +29,7 @@ data class Usuario(
     @Convert(converter = PerfilUsuarioConverter::class)
     val perfil: PerfilUsuario = PerfilUsuario.motorista,
 
-    @Column(name = "foto_perfil")
+    @Column(name = "foto_perfil", columnDefinition = "text")
     val fotoPerfil: String? = null,
 
     @Column(name = "ativo", nullable = false)

@@ -220,6 +220,13 @@ abertura do diário por uma lista e mandar o `id` escolhido em `motivoUsoId` do 
 - Mandar as fotos ANTES de assinar o diário (diário assinado recusa foto).
 - Leitura: `GET /diarios/{id}/fotos` (lista sem os bytes) e `GET /fotos/{id}` (a imagem, com cache e ETag).
 
+**Foto de perfil** (`PUT /usuarios/{login}/perfil` e `PUT /usuarios/{login}`, campo `fotoPerfil`):
+- Continua aceitando base64 puro com quebras de linha (celulares antigos) ou já com `data:image/jpeg|png;base64,`.
+- A API grava e devolve sempre `data:image/jpeg;base64,...` ou `data:image/png;base64,...` (sem quebras).
+- Só JPEG e PNG, até 512 KB de imagem. Erros 400: `FOTO_PERFIL_INVALIDA` e `FOTO_PERFIL_GRANDE_DEMAIS`.
+- Sugestão para o app novo: reduzir para 256 a 512 px, JPEG 80 (uns 30 a 80 KB).
+- Foto vazia ou ausente não altera a foto atual (não há como remover a foto por enquanto).
+
 ## 9. Situação da API (para o Yago)
 
 Feito: erros padronizados, validações e unicidade, status da ocorrência, transações, fuso UTC, respostas mais

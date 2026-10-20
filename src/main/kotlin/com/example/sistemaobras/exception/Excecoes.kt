@@ -42,6 +42,10 @@ object CodigosErro {
     const val VINCULO_NAO_ENCONTRADO = "VINCULO_NAO_ENCONTRADO"
     const val FOTO_NAO_ENCONTRADA = "FOTO_NAO_ENCONTRADA"
 
+    // Foto de perfil (base64 em usuarios.foto_perfil):
+    const val FOTO_PERFIL_INVALIDA = "FOTO_PERFIL_INVALIDA"             // 400 (só JPEG e PNG, base64 válido)
+    const val FOTO_PERFIL_GRANDE_DEMAIS = "FOTO_PERFIL_GRANDE_DEMAIS"   // 400 (APP_FOTO_PERFIL_MAX)
+
     // Parte 6B: motivos de horário suspeito (o registro é aceito e marcado).
     const val HORARIO_ANTIGO = "HORARIO_ANTIGO"
     const val DESVIO_RELOGIO = "DESVIO_RELOGIO"

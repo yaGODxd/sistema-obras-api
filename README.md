@@ -46,6 +46,7 @@ O esquema do banco é manual (`ddl-auto=none`): o banco local precisa ter as mes
 | `SWAGGER_ENABLED` | `false` | `true` liga a documentação em `/swagger-ui.html` |
 | `APP_FOTO_MAX_ARQUIVO` / `APP_FOTO_MAX_REQUISICAO` | `5MB` / `6MB` | Tamanho máximo da foto e do envio inteiro |
 | `APP_FOTO_ENVIOS_SIMULTANEOS` | `2` | Quantas fotos podem ser gravadas ao mesmo tempo (memória) |
+| `APP_FOTO_PERFIL_MAX` | `512KB` | Tamanho máximo da foto de perfil (imagem decodificada) |
 
 Trocar uma variável no Render reinicia a aplicação; não precisa gerar jar novo.
 

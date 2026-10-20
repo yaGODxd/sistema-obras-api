@@ -59,7 +59,8 @@ Regra de deploy: o Dockerfile faz COPY build/libs/*.jar. Depois de mudar o códi
    - FEITO (19/10, com o resultado do information_schema): limites @Size nos DTOs iguais às colunas (quase todas varchar(255); senha até 72 por causa do BCrypt). LogService corta textos do log em 255 (a descrição da ocorrência podia estourar logs.descricao DEPOIS de gravar a ocorrência).
    - FEITO (Parte 3, etapa B, 19/10, falta deploy): litros > 0, quantidade de peça >= 1, medidor final >= inicial; valor/custo/valor unitário zero aceitos.
    - DECISÕES 19/10 (para a Parte 3, etapa B): recusar litros = 0 e quantidade de peça < 1; aceitar valorTotal = 0, custo de mão de obra = 0 e valor unitário = 0 (garantia); recusar medidor final menor que o inicial ({"erro": "O medidor final não pode ser menor que o medidor inicial."}); troca de hodômetro = limitação documentada. Status de manutenção validado na Parte 3 (aberta, em_andamento, concluida). Placa de veículo inativo: decisão SUBSTITUÍDA em 19/10 (inativo segura a placa; ver item 21).
-   - ACHADO 19/10 (decidir): usuarios.foto_perfil é varchar(255), mas a foto é base64 (muito maior). A API NÃO limita a foto (decisão de não reduzir foto). Diagnóstico e ALTER sugerido (comentados) no bloco 5 de docs/migracoes.sql.
+   - FEITO (20/10, falta ALTER + deploy): foto de perfil normalizada na escrita (PUT /usuarios/{login}/perfil e PUT /usuarios/{login}): tira espaços/quebras, base64 estrito, tipo pelos bytes (JPEG/PNG), grava "data:image/...;base64," recodificado; 400 FOTO_PERFIL_INVALIDA e FOTO_PERFIL_GRANDE_DEMAIS (teto APP_FOTO_PERFIL_MAX, padrão 512KB, na imagem decodificada). Vazia/null não altera (não há rota para remover a foto). Cadastro não grava foto. ALTER ... TYPE text no fim de docs/migracoes.sql, ANTES do deploy.
+   - ACHADO 19/10 (resolvido 20/10, ver acima): usuarios.foto_perfil é varchar(255), mas a foto é base64 (muito maior). A API NÃO limita a foto (decisão de não reduzir foto). Diagnóstico e ALTER sugerido (comentados) no bloco 5 de docs/migracoes.sql.
 
 4. CORS
    - FEITO (Parte 5, 19/10): origens por APP_CORS_ORIGENS (vírgula); sem a variável continua "*". Authorization já liberado (allowedHeaders "*").
@@ -76,6 +77,7 @@ Regra de deploy: o Dockerfile faz COPY build/libs/*.jar. Depois de mudar o códi
 7. Foto fora das listas (condicional)
    - A foto de perfil é base64 dentro da lista de motoristas online (recarregada a cada 15 s no dashboard). Decisão atual: não reduzir foto.
    - Se o tamanho da resposta passar de 1 a 2 MB, tirar a foto da lista e servir por rota separada com cache.
+   - REGISTRADO (20/10, coordenador): GET /usuarios (findAll) devolve a foto de perfil de TODOS os usuários (até 512 KB cada, ~700 mil caracteres em base64). Com 7 usuários é aceitável; reavaliar se a lista crescer (lista sem foto, ou foto por rota própria com cache).
 
 8. Fechar rotas antigas atrás do JWT (RNF10)
    - FEITO (Parte 5, 19/10): matriz rota x perfil na SecurityConfig, ligada por APP_SEGURANCA_EXIGIR_JWT=true (padrão false = comportamento antigo). Motorista só acessa os próprios dados (ControleAcesso); com token de motorista, o loginMotorista do corpo é trocado pelo do token. Ligar só depois de conferir que o app manda o token em TODAS as chamadas.
