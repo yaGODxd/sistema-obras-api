@@ -60,6 +60,9 @@ class TratadorDeErrosTest {
             SQLException("duplicate key value violates unique constraint \"usuarios_login_key\"", "23505")
         )
 
+        @GetMapping("/grande")
+        fun grande(): String = throw org.springframework.web.multipart.MaxUploadSizeExceededException(5L * 1024 * 1024)
+
         @PostMapping("/corpo")
         fun corpo(@RequestBody corpo: Corpo): Corpo = corpo
 
@@ -137,6 +140,14 @@ class TratadorDeErrosTest {
         mockMvc.perform(get("/teste/numero"))
             .andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.erro").value("Parâmetro obrigatório ausente: n."))
+    }
+
+    @Test
+    fun `foto acima do limite responde 413 com codigo`() {
+        mockMvc.perform(get("/teste/grande"))
+            .andExpect(status().isPayloadTooLarge)
+            .andExpect(jsonPath("$.erro").value("A foto passou do tamanho máximo permitido."))
+            .andExpect(jsonPath("$.codigo").value("FOTO_GRANDE_DEMAIS"))
     }
 
     @Test

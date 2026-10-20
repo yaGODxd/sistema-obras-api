@@ -54,6 +54,8 @@ class ErrosDasRotasTest {
     @MockitoBean lateinit var mecanicoRepository: MecanicoRepository
     @MockitoBean lateinit var postoRepository: PostoRepository
     @MockitoBean lateinit var secretariaRepository: SecretariaRepository
+    @MockitoBean lateinit var motivoUsoRepository: MotivoUsoRepository
+    @MockitoBean lateinit var fotoService: FotoService
     @MockitoBean lateinit var checklistTemplateRepository: ChecklistTemplateRepository
     @MockitoBean lateinit var checklistItemRepository: ChecklistItemRepository
     @MockitoBean lateinit var checklistRespostaRepository: ChecklistRespostaRepository
@@ -415,6 +417,64 @@ class ErrosDasRotasTest {
         json(post("/rastreamento/lote"), """{"diarioId":"$uuid","pontos":[]}""")
             .andExpect(status().isUnprocessableEntity)
             .andExpect(jsonPath("$.codigo").value("HORARIO_FUTURO"))
+    }
+
+    // ---------- Parte 9: fotos ----------
+
+    @Test
+    fun `envio de foto e multipart e os erros saem com o status das rotas novas`() {
+        val arquivo = org.springframework.mock.web.MockMultipartFile("arquivo", "foto.jpg", "image/jpeg", byteArrayOf(1, 2, 3))
+        given(fotoService.enviar(qualquer(), qualquer())).willThrow(
+            com.example.sistemaobras.exception.ApiException(
+                org.springframework.http.HttpStatus.UNSUPPORTED_MEDIA_TYPE, "A foto precisa ser JPEG ou PNG.", "TIPO_ARQUIVO_INVALIDO"
+            )
+        )
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart("/fotos")
+            .file(arquivo).param("tipo", "livre").param("diarioId", uuid))
+            .andExpect(status().isUnsupportedMediaType)
+            .andExpect(jsonPath("$.codigo").value("TIPO_ARQUIVO_INVALIDO"))
+    }
+
+    @Test
+    fun `envio de foto sem o arquivo responde 400 com mensagem`() {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart("/fotos")
+            .param("tipo", "livre"))
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.erro").value("Parte obrigatória ausente: arquivo."))
+    }
+
+    @Test
+    fun `imagem sai com content-type, cache privado e etag, e 304 se nao mudou`() {
+        given(fotoService.lerImagem(uuid)).willReturn(FotoService.Imagem(byteArrayOf(9, 8, 7), "image/png", "abc123"))
+        mockMvc.perform(get("/fotos/$uuid"))
+            .andExpect(status().isOk)
+            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Content-Type", "image/png"))
+            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("ETag", "\"abc123\""))
+            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Cache-Control", org.hamcrest.Matchers.containsString("private")))
+            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().bytes(byteArrayOf(9, 8, 7)))
+        mockMvc.perform(get("/fotos/$uuid").header("If-None-Match", "\"abc123\""))
+            .andExpect(status().isNotModified)
+    }
+
+    @Test
+    fun `fotos uso nao e confundido com id de foto`() {
+        given(fotoService.uso()).willReturn(com.example.sistemaobras.dto.UsoFotosResponse(0, 0, 0.0, 0, 0.0, 0, 0.0))
+        mockMvc.perform(get("/fotos/uso")).andExpect(status().isOk).andExpect(jsonPath("$.quantidadeFotos").value(0))
+        Mockito.verify(fotoService, Mockito.never()).lerImagem("uso")
+    }
+
+    // ---------- Parte 9 (extra): motivos de uso ----------
+
+    @Test
+    fun `motivos de uso lista id e descricao dos ativos`() {
+        given(motivoUsoRepository.findByAtivoTrueOrderByDescricao()).willReturn(listOf(
+            com.example.sistemaobras.entity.MotivoUso(java.util.UUID.fromString(uuid), "Entrega de material", true)
+        ))
+        mockMvc.perform(get("/motivos-uso"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$[0].id").value(uuid))
+            .andExpect(jsonPath("$[0].descricao").value("Entrega de material"))
+            .andExpect(jsonPath("$[0].ativo").doesNotExist())
     }
 
     @Test

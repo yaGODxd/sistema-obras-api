@@ -44,6 +44,8 @@ O esquema do banco é manual (`ddl-auto=none`): o banco local precisa ter as mes
 | `APP_VALIDAR_CPF_DIGITOS` | `false` | `true` confere os dígitos do CPF no cadastro |
 | `APP_DATAS_COM_FUSO` | `false` | `true` faz as datas das respostas saírem com `Z` (UTC) |
 | `SWAGGER_ENABLED` | `false` | `true` liga a documentação em `/swagger-ui.html` |
+| `APP_FOTO_MAX_ARQUIVO` / `APP_FOTO_MAX_REQUISICAO` | `5MB` / `6MB` | Tamanho máximo da foto e do envio inteiro |
+| `APP_FOTO_ENVIOS_SIMULTANEOS` | `2` | Quantas fotos podem ser gravadas ao mesmo tempo (memória) |
 
 Trocar uma variável no Render reinicia a aplicação; não precisa gerar jar novo.
 

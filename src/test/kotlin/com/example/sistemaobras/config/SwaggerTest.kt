@@ -58,6 +58,8 @@ class SwaggerTest {
     @MockitoBean lateinit var mecanicoRepository: MecanicoRepository
     @MockitoBean lateinit var postoRepository: PostoRepository
     @MockitoBean lateinit var secretariaRepository: SecretariaRepository
+    @MockitoBean lateinit var motivoUsoRepository: MotivoUsoRepository
+    @MockitoBean lateinit var fotoService: FotoService
     @MockitoBean lateinit var checklistTemplateRepository: ChecklistTemplateRepository
     @MockitoBean lateinit var checklistItemRepository: ChecklistItemRepository
     @MockitoBean lateinit var checklistRespostaRepository: ChecklistRespostaRepository

@@ -120,6 +120,7 @@ Regra de deploy: o Dockerfile faz COPY build/libs/*.jar. Depois de mudar o códi
 - Os horários de abastecimento e ocorrência enviados pelo app com registradoEm ficam em horário de Brasília (item 1): no modal aparecem 3 h atrasados até corrigirmos a API.
 
 14. Fotos de comprovação (pedido do app, 18/10)
+- EM ANDAMENTO (Parte 9, 19/10): fotos em bytea na tabela fotos; plano aprovado em docs/PLANO-FOTOS.md. App reduz as fotos (1920 px, JPEG 80, 400-800 KB); limite 5 MB. Etapa 1 (GET /motivos-uso) feita. Etapa 2 (POST /fotos) e etapa 3 (leitura) feitas no código; SQL da etapa 2 aguardando aprovação (rodar antes do deploy). Falta: assinatura cobrindo fotos (outra parte) e decidir armazenamento externo antes de o banco encher.
 - PONTO ABERTO (19/10, coordenador): a tabela fotos (diario_id, ocorrencia_id, tipo, caminho_arquivo, tirada_em) guarda CAMINHO de arquivo, que não serve na Render (o disco é apagado a cada deploy). Decidir: foto no banco (base64/bytea) ou armazenamento externo. Nada a fazer agora.
 - Foto do hodômetro ao fechar o diário (FecharDiarioRequest hoje: medidorFinal e observacaoFechamento).
 - Foto do cupom fiscal no abastecimento em posto; foto da bomba quando o abastecimento é no comboio (AbastecimentoRequest hoje não tem foto).

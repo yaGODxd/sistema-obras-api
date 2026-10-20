@@ -48,6 +48,8 @@ class Parte5SegurancaTest {
     @MockitoBean lateinit var mecanicoRepository: MecanicoRepository
     @MockitoBean lateinit var postoRepository: PostoRepository
     @MockitoBean lateinit var secretariaRepository: SecretariaRepository
+    @MockitoBean lateinit var motivoUsoRepository: MotivoUsoRepository
+    @MockitoBean lateinit var fotoService: FotoService
     @MockitoBean lateinit var checklistTemplateRepository: ChecklistTemplateRepository
     @MockitoBean lateinit var checklistItemRepository: ChecklistItemRepository
     @MockitoBean lateinit var checklistRespostaRepository: ChecklistRespostaRepository
@@ -108,6 +110,37 @@ class Parte5SegurancaTest {
             .andExpect(status().isForbidden)
         mockMvc.perform(post("/rastreamento/lote").token("tm").json("""{"diarioId":"x","pontos":[]}"""))
             .andExpect(status().isOk)
+    }
+
+    @Test
+    fun `so o motorista envia foto`() {
+        val arquivo = org.springframework.mock.web.MockMultipartFile("arquivo", "foto.jpg", "image/jpeg", byteArrayOf(1))
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart("/fotos")
+            .file(arquivo).param("tipo", "livre").header("Authorization", "Bearer tg"))
+            .andExpect(status().isForbidden)
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart("/fotos")
+            .file(arquivo).param("tipo", "livre").header("Authorization", "Bearer tm"))
+            .andExpect(status().isOk)
+    }
+
+    @Test
+    fun `uso das fotos so gestor e leitura das fotos para os dois`() {
+        given(fotoService.uso()).willReturn(com.example.sistemaobras.dto.UsoFotosResponse(0, 0, 0.0, 0, 0.0, 0, 0.0))
+        given(fotoService.lerImagem(org.mockito.ArgumentMatchers.anyString())).willReturn(FotoService.Imagem(byteArrayOf(1), "image/jpeg", "h"))
+        val id = java.util.UUID.randomUUID()
+        mockMvc.perform(get("/fotos/uso").token("tm")).andExpect(status().isForbidden)
+        mockMvc.perform(get("/fotos/uso").token("tg")).andExpect(status().isOk)
+        mockMvc.perform(get("/fotos/$id").token("tm")).andExpect(status().isOk)
+        mockMvc.perform(get("/fotos/$id").token("tg")).andExpect(status().isOk)
+        mockMvc.perform(get("/diarios/$id/fotos").token("tm")).andExpect(status().isOk)
+        mockMvc.perform(get("/fotos/$id")).andExpect(status().isUnauthorized)
+    }
+
+    @Test
+    fun `motivos de uso servem para gestor e motorista mas exigem token`() {
+        mockMvc.perform(get("/motivos-uso").token("tm")).andExpect(status().isOk)
+        mockMvc.perform(get("/motivos-uso").token("tg")).andExpect(status().isOk)
+        mockMvc.perform(get("/motivos-uso")).andExpect(status().isUnauthorized)
     }
 
     @Test

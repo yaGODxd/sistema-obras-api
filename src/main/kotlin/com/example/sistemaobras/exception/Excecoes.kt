@@ -32,6 +32,16 @@ object CodigosErro {
     const val PLACA_EM_USO = "PLACA_EM_USO"
     const val PLACA_DE_VEICULO_INATIVO = "PLACA_DE_VEICULO_INATIVO"
 
+    // Parte 9 (fotos):
+    const val FOTO_GRANDE_DEMAIS = "FOTO_GRANDE_DEMAIS"         // 413
+    const val TIPO_ARQUIVO_INVALIDO = "TIPO_ARQUIVO_INVALIDO"   // 415 (só JPEG e PNG, conferido pelos bytes)
+    const val FOTO_OCUPADO = "FOTO_OCUPADO"                     // 503 (tentar de novo)
+    const val ARQUIVO_VAZIO = "ARQUIVO_VAZIO"
+    const val TIPO_FOTO_INVALIDO = "TIPO_FOTO_INVALIDO"
+    const val VINCULO_INVALIDO = "VINCULO_INVALIDO"
+    const val VINCULO_NAO_ENCONTRADO = "VINCULO_NAO_ENCONTRADO"
+    const val FOTO_NAO_ENCONTRADA = "FOTO_NAO_ENCONTRADA"
+
     // Parte 6B: motivos de horário suspeito (o registro é aceito e marcado).
     const val HORARIO_ANTIGO = "HORARIO_ANTIGO"
     const val DESVIO_RELOGIO = "DESVIO_RELOGIO"

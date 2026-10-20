@@ -215,6 +215,13 @@ Com a fila offline, o app envia os eventos de cada diário SEPARADOS do momento 
 - README curto da API: como rodar, variáveis de ambiente, ordem SQL -> deploy.
 - PROPOSTA (sem executar) de Dockerfile multi-stage para o Render compilar sozinho e o jar parar de ser versionado, com riscos. Só executar se eu aprovar.
 
+## PARTE 9 - Fotos no banco (item 14) - plano em docs/PLANO-FOTOS.md (aprovado 19/10)
+- Etapa 1 FEITA (19/10): GET /motivos-uso (id e descrição dos ativos; gestor e motorista; sem SQL).
+- Etapa 2 FEITA no código (19/10): POST /fotos (multipart; bytea via FotoRepository/JDBC, sem entidade JPA; ArmazenamentoFotos;
+  tipo pelos bytes; 2 envios simultâneos; idLocal; regra do comboio; códigos novos; 413 com FOTO_GRANDE_DEMAIS).
+  SQL no bloco "Parte 9 (fotos no banco) - etapa 2" (e bloco (g) do para-revisao.txt): aguarda aprovação do texto; rodar ANTES do deploy.
+- Etapa 3 FEITA (19/10): GET /fotos/{id} (imagem, cache privado 1 dia, ETag = sha256, 304), GET /diarios/{id}/fotos (só metadados), GET /fotos/uso (gestor). Matriz: /fotos/uso (gestor) antes de /fotos/* (ambos); /diarios/*/fotos (ambos). Assinatura cobrindo fotos: outra parte.
+
 ## Relatório ao fim de cada parte (depois PARE)
 1. O que mudou (arquivos, 1 linha cada).
 2. SQL para rodar ANTES do deploy (bloco pronto para colar) ou "nenhum".

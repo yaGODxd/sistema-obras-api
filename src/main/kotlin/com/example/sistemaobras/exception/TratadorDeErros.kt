@@ -13,6 +13,8 @@ import org.springframework.web.HttpMediaTypeNotSupportedException
 import org.springframework.web.HttpRequestMethodNotSupportedException
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.MissingServletRequestParameterException
+import org.springframework.web.multipart.MaxUploadSizeExceededException
+import org.springframework.web.multipart.support.MissingServletRequestPartException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.context.request.WebRequest
@@ -81,7 +83,10 @@ class TratadorDeErros : ResponseEntityExceptionHandler() {
         request: WebRequest
     ): ResponseEntity<Any>? {
         if (statusCode.is5xxServerError) log.error("Erro interno do Spring MVC", ex)
-        return ResponseEntity.status(statusCode).headers(headers).body(mapOf("erro" to mensagemSpring(ex, statusCode)))
+        val corpo = mutableMapOf("erro" to mensagemSpring(ex, statusCode))
+        // Parte 9: foto acima do limite (APP_FOTO_MAX_ARQUIVO). O Spring responde 413.
+        if (ex is MaxUploadSizeExceededException) corpo["codigo"] = CodigosErro.FOTO_GRANDE_DEMAIS
+        return ResponseEntity.status(statusCode).headers(headers).body(corpo)
     }
 
     // "codigo" só aparece quando a exceção tem um (campo a mais; quem lê só "erro" não muda).
@@ -103,6 +108,8 @@ class TratadorDeErros : ResponseEntityExceptionHandler() {
         is MethodArgumentNotValidException -> ex.bindingResult.fieldErrors.firstOrNull()
             ?.let { "Campo '${it.field}' ${it.defaultMessage}." } ?: "Dados inválidos."
         is MissingServletRequestParameterException -> "Parâmetro obrigatório ausente: ${ex.parameterName}."
+        is MissingServletRequestPartException -> "Parte obrigatória ausente: ${ex.requestPartName}."
+        is MaxUploadSizeExceededException -> "A foto passou do tamanho máximo permitido."
         is TypeMismatchException -> "Valor inválido para '${ex.propertyName ?: "parâmetro"}'."
         is NoResourceFoundException -> "Rota não encontrada."
         is HttpRequestMethodNotSupportedException -> "Método HTTP não permitido nesta rota."

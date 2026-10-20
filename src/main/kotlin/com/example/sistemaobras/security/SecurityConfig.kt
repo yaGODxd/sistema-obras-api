@@ -84,7 +84,8 @@ class SecurityConfig {
         auth.requestMatchers(
             "/auth/**", "/usuarios/**", "/turnos/**", "/veiculos/**", "/diarios/**",
             "/rastreamento/**", "/abastecimentos/**", "/ocorrencias/**", "/manutencoes/**",
-            "/logs/**", "/secretarias/**", "/mecanicos/**", "/postos/**", "/checklist/**"
+            "/logs/**", "/secretarias/**", "/mecanicos/**", "/postos/**", "/checklist/**", "/motivos-uso/**",
+            "/fotos/**"
         ).permitAll()
         auth.anyRequest().authenticated()
     }
@@ -104,6 +105,7 @@ class SecurityConfig {
         auth.requestMatchers(HttpMethod.GET, "/diarios/meus").hasRole(motorista)
         auth.requestMatchers(HttpMethod.PUT, "/diarios/*").hasRole(motorista)
         auth.requestMatchers(HttpMethod.POST, "/abastecimentos", "/ocorrencias", "/rastreamento", "/rastreamento/lote", "/checklist/respostas").hasRole(motorista)
+        auth.requestMatchers(HttpMethod.POST, "/fotos").hasRole(motorista)
 
         // ---- Só gestor (antes das regras "ambos" que usam curinga) ----
         auth.requestMatchers(HttpMethod.GET, "/usuarios", "/usuarios/motoristas/online").hasRole(gestor)
@@ -112,6 +114,8 @@ class SecurityConfig {
         auth.requestMatchers(HttpMethod.GET, "/abastecimentos", "/abastecimentos/veiculo/*").hasRole(gestor)
         auth.requestMatchers(HttpMethod.GET, "/ocorrencias", "/ocorrencias/veiculo/*").hasRole(gestor)
         auth.requestMatchers(HttpMethod.GET, "/rastreamento/posicoes").hasRole(gestor)
+        // Antes de GET /fotos/* (ambos): senão "uso" casaria como id de foto.
+        auth.requestMatchers(HttpMethod.GET, "/fotos/uso").hasRole(gestor)
 
         // ---- Ambos ----
         auth.requestMatchers(HttpMethod.GET, "/auth/me").hasAnyRole(gestor, motorista)
@@ -121,9 +125,10 @@ class SecurityConfig {
         auth.requestMatchers(HttpMethod.GET, "/turnos/status/*").hasAnyRole(gestor, motorista)
         auth.requestMatchers(HttpMethod.GET, "/veiculos", "/veiculos/**").hasAnyRole(gestor, motorista)
         auth.requestMatchers(HttpMethod.GET, "/diarios/aberto/*", "/diarios/*", "/diarios/*/verificar").hasAnyRole(gestor, motorista)
+        auth.requestMatchers(HttpMethod.GET, "/fotos/*", "/diarios/*/fotos").hasAnyRole(gestor, motorista)
         auth.requestMatchers(HttpMethod.GET, "/abastecimentos/**", "/ocorrencias/**").hasAnyRole(gestor, motorista)
         auth.requestMatchers(HttpMethod.GET, "/rastreamento/diario/*").hasAnyRole(gestor, motorista)
-        auth.requestMatchers(HttpMethod.GET, "/postos", "/secretarias", "/secretarias/**").hasAnyRole(gestor, motorista)
+        auth.requestMatchers(HttpMethod.GET, "/postos", "/secretarias", "/secretarias/**", "/motivos-uso").hasAnyRole(gestor, motorista)
         auth.requestMatchers(HttpMethod.GET, "/checklist/**").hasAnyRole(gestor, motorista)
 
         // ---- Todo o resto: gestor (cadastros, manutenções, logs, mecânicos, gravações de gestão) ----

@@ -499,3 +499,67 @@ LEFT JOIN information_schema.columns c
        ON c.table_schema = 'public' AND c.table_name = e.tabela AND c.column_name = e.coluna
 WHERE c.column_name IS NULL
 ORDER BY 1, 2;
+
+
+##############################################################################
+(g) PARTE 9 (FOTOS) - ETAPA 2: SQL PARA APROVAR (enum fora de transação; depois as colunas)
+
+-- =====================================================================
+-- 19/10/2026 - Parte 9 (fotos no banco) - etapa 2
+-- NÃO RODAR antes de o coordenador aprovar ESTE texto. Rodar ANTES do deploy do código da etapa 2
+-- (o POST /fotos grava nestas colunas). Aditivo: nenhum código antigo usa a tabela fotos (está vazia).
+-- PostgreSQL 18 (consulta Q3): ADD VALUE em enum é aceito.
+-- =====================================================================
+
+-- PASSO 1: valores novos do enum. Rodar SOZINHO, fora de BEGIN/COMMIT
+-- (um valor novo de enum não pode ser usado na mesma transação em que foi criado).
+/*
+ALTER TYPE tipo_foto ADD VALUE IF NOT EXISTS 'cupom_fiscal';
+ALTER TYPE tipo_foto ADD VALUE IF NOT EXISTS 'bomba_comboio';
+*/
+
+-- PASSO 2: colunas novas. caminho_arquivo vira opcional (fica para armazenamento externo no futuro).
+-- tirada_em (já existe) passa a ser a hora em que o celular tirou a foto; a API grava explícito em UTC.
+-- idx_fotos_diario já existe (consulta Q1): não é recriado.
+/*
+BEGIN;
+
+ALTER TABLE fotos
+    ALTER COLUMN caminho_arquivo DROP NOT NULL,
+    ADD COLUMN IF NOT EXISTS conteudo           bytea,
+    ADD COLUMN IF NOT EXISTS tipo_mime          varchar(20),
+    ADD COLUMN IF NOT EXISTS tamanho_bytes      integer,
+    ADD COLUMN IF NOT EXISTS hash_sha256        char(64),
+    ADD COLUMN IF NOT EXISTS id_local           uuid,
+    ADD COLUMN IF NOT EXISTS recebida_em        timestamp,
+    ADD COLUMN IF NOT EXISTS registrado_por     uuid,
+    ADD COLUMN IF NOT EXISTS abastecimento_id   uuid REFERENCES abastecimentos(id),
+    ADD COLUMN IF NOT EXISTS desvio_relogio_seg integer,
+    ADD COLUMN IF NOT EXISTS horario_suspeito   boolean NOT NULL DEFAULT false,
+    ADD COLUMN IF NOT EXISTS motivo_suspeita    varchar(255);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_fotos_id_local    ON fotos (id_local) WHERE id_local IS NOT NULL;
+CREATE INDEX        IF NOT EXISTS idx_fotos_abastecimento ON fotos (abastecimento_id);
+
+COMMIT;
+*/
+
+-- Conferência (só leitura):
+-- SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = 'fotos' ORDER BY ordinal_position;
+-- SELECT e.enumlabel FROM pg_type t JOIN pg_enum e ON e.enumtypid = t.oid WHERE t.typname = 'tipo_foto' ORDER BY e.enumsortorder;
+
+-- ROLLBACK (só se precisar voltar; apaga as fotos gravadas pela API):
+/*
+BEGIN;
+DROP INDEX IF EXISTS idx_fotos_abastecimento;
+DROP INDEX IF EXISTS uq_fotos_id_local;
+ALTER TABLE fotos
+    DROP COLUMN IF EXISTS motivo_suspeita, DROP COLUMN IF EXISTS horario_suspeito, DROP COLUMN IF EXISTS desvio_relogio_seg,
+    DROP COLUMN IF EXISTS abastecimento_id, DROP COLUMN IF EXISTS registrado_por, DROP COLUMN IF EXISTS recebida_em,
+    DROP COLUMN IF EXISTS id_local, DROP COLUMN IF EXISTS hash_sha256, DROP COLUMN IF EXISTS tamanho_bytes,
+    DROP COLUMN IF EXISTS tipo_mime, DROP COLUMN IF EXISTS conteudo;
+-- caminho_arquivo volta a ser obrigatório só se nenhuma linha estiver sem caminho:
+-- ALTER TABLE fotos ALTER COLUMN caminho_arquivo SET NOT NULL;
+COMMIT;
+-- Os valores 'cupom_fiscal' e 'bomba_comboio' do enum NÃO saem (o PostgreSQL não remove valor de enum); ficam sem uso.
+*/
