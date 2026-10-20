@@ -46,6 +46,14 @@ class TratadorDeErros : ResponseEntityExceptionHandler() {
         val sql = causaSql(e)
         log.warn("Banco recusou a gravação em {} {}: sqlState={} {}",
             request.method, request.requestURI, sql?.sqlState, sql?.message)
+        // Parte 6B: dois reenvios com o mesmo idLocal chegando juntos -> o índice único barra
+        // o segundo. É seguro tentar de novo (o reenvio seguinte devolve o registro gravado).
+        if (sql?.sqlState == "23505" && sql.message?.lowercase()?.contains("id_local") == true)
+            return responder(
+                statusFixo(request) ?: HttpStatus.CONFLICT,
+                "Este registro já está sendo gravado. Tente de novo.",
+                CodigosErro.REENVIO_SIMULTANEO
+            )
         return responder(statusFixo(request) ?: HttpStatus.INTERNAL_SERVER_ERROR, mensagemIntegridade(sql))
     }
 

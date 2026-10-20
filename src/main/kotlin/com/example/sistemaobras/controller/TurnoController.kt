@@ -17,13 +17,13 @@ class TurnoController(
     @PostMapping("/abrir")
     @StatusErroFixo(400)
     fun abrirTurno(@RequestBody request: TurnoRequest): ResponseEntity<TurnoResponse> {
-        return ResponseEntity.ok(turnoService.abrirTurno(ControleAcesso.loginEfetivo(request.login)))
+        return ResponseEntity.ok(turnoService.abrirTurno(request.copy(login = ControleAcesso.loginEfetivo(request.login))))
     }
 
     @PostMapping("/fechar")
     @StatusErroFixo(400)
     fun fecharTurno(@RequestBody request: TurnoRequest): ResponseEntity<TurnoResponse> {
-        return ResponseEntity.ok(turnoService.fecharTurno(ControleAcesso.loginEfetivo(request.login)))
+        return ResponseEntity.ok(turnoService.fecharTurno(request.copy(login = ControleAcesso.loginEfetivo(request.login))))
     }
 
     @GetMapping("/status/{login}")

@@ -16,15 +16,40 @@ object CodigosErro {
     const val DIARIO_PENDENTE_ASSINATURA = "DIARIO_PENDENTE_ASSINATURA"
     const val TURNO_COM_DIARIO_ABERTO = "TURNO_COM_DIARIO_ABERTO"
     const val STATUS_INVALIDO = "STATUS_INVALIDO"
+
+    // Parte 6B (uso offline). Recusas:
+    const val ID_INVALIDO = "ID_INVALIDO"
+    const val HORARIO_INVALIDO = "HORARIO_INVALIDO"
+    const val HORARIO_FUTURO = "HORARIO_FUTURO"             // também usado como motivo de suspeita
+    const val DIARIO_NAO_ENCONTRADO = "DIARIO_NAO_ENCONTRADO"
+    const val SEM_DIARIO_ABERTO = "SEM_DIARIO_ABERTO"
+    const val DIARIO_DE_OUTRO_MOTORISTA = "DIARIO_DE_OUTRO_MOTORISTA"
+    const val DIARIO_ASSINADO = "DIARIO_ASSINADO"
+    const val DIARIO_JA_FECHADO = "DIARIO_JA_FECHADO"
+    const val ID_LOCAL_EM_USO = "ID_LOCAL_EM_USO"
+    const val REENVIO_SIMULTANEO = "REENVIO_SIMULTANEO"
+    const val LOTE_GRANDE_DEMAIS = "LOTE_GRANDE_DEMAIS"
+    const val PLACA_EM_USO = "PLACA_EM_USO"
+    const val PLACA_DE_VEICULO_INATIVO = "PLACA_DE_VEICULO_INATIVO"
+
+    // Parte 6B: motivos de horário suspeito (o registro é aceito e marcado).
+    const val HORARIO_ANTIGO = "HORARIO_ANTIGO"
+    const val DESVIO_RELOGIO = "DESVIO_RELOGIO"
+    const val FORA_DA_JANELA_DIARIO = "FORA_DA_JANELA_DIARIO"
+    const val FORA_DA_JANELA_TURNO = "FORA_DA_JANELA_TURNO"
+    const val COMBOIO_SEM_DIARIO = "COMBOIO_SEM_DIARIO"
 }
 
-class NaoEncontradoException(mensagem: String) : ApiException(HttpStatus.NOT_FOUND, mensagem)
+class NaoEncontradoException(mensagem: String, codigo: String? = null) : ApiException(HttpStatus.NOT_FOUND, mensagem, codigo)
 
-class ConflitoException(mensagem: String) : ApiException(HttpStatus.CONFLICT, mensagem)
+class ConflitoException(mensagem: String, codigo: String? = null) : ApiException(HttpStatus.CONFLICT, mensagem, codigo)
 
 class NaoAutorizadoException(mensagem: String) : ApiException(HttpStatus.UNAUTHORIZED, mensagem)
 
-class ProibidoException(mensagem: String) : ApiException(HttpStatus.FORBIDDEN, mensagem)
+class ProibidoException(mensagem: String, codigo: String? = null) : ApiException(HttpStatus.FORBIDDEN, mensagem, codigo)
+
+// 422: o pedido está bem formado, mas o dado não pode ser aceito (ex.: horário muito no futuro).
+class NaoProcessavelException(mensagem: String, codigo: String? = null) : ApiException(HttpStatus.UNPROCESSABLE_ENTITY, mensagem, codigo)
 
 /**
  * Contrato antigo: a rota respondia SEMPRE este status em qualquer erro
@@ -41,5 +66,5 @@ fun uuidValido(texto: String): java.util.UUID =
     try {
         java.util.UUID.fromString(texto)
     } catch (e: IllegalArgumentException) {
-        throw RegraNegocioException("Identificador inválido.")
+        throw RegraNegocioException("Identificador inválido.", CodigosErro.ID_INVALIDO)
     }

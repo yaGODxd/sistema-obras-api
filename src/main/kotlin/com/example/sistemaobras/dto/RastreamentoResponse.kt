@@ -9,7 +9,12 @@ data class RastreamentoResponse(
     val latitude: Double,
     val longitude: Double,
     val velocidade: Double?,
-    val registradoEm: LocalDateTime?
+    val registradoEm: LocalDateTime?,
+    // Parte 6B: hora em que o servidor recebeu e marcação de horário suspeito.
+    val recebidoEm: LocalDateTime? = null,
+    val idLocal: UUID? = null,
+    val horarioSuspeito: Boolean = false,
+    val motivoSuspeita: String? = null
 )
 
 data class UltimaPosicaoResponse(

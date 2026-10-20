@@ -11,7 +11,10 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.support.TransactionTemplate
+import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.ZoneOffset
 
 @Service
 class LogService(
@@ -58,6 +61,9 @@ class LogService(
         return autenticacao.name
     }
 
+    private fun inicioDoDiaEmUtc(dia: LocalDate): LocalDateTime =
+        dia.atStartOfDay(ZoneId.of("America/Sao_Paulo")).withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime()
+
     private fun cortar(texto: String): String =
         if (texto.length <= TAMANHO_COLUNA) texto else texto.take(TAMANHO_COLUNA - 1) + "…"
 
@@ -75,8 +81,10 @@ class LogService(
         inicio: String?,
         fim: String?
     ): List<LogResponse> {
-        val inicioDate = inicio?.let { LocalDateTime.parse(it + "T00:00:00") }
-        val fimDate = fim?.let { LocalDateTime.parse(it + "T23:59:59") }
+        // Parte 6C: "inicio" e "fim" são dias de BRASÍLIA (o que o gestor vê na tela).
+        // O banco guarda UTC: o dia 19 em Brasília vai de 19 03:00 a 20 02:59:59.999999 em UTC.
+        val inicioDate = inicio?.let { inicioDoDiaEmUtc(LocalDate.parse(it)) }
+        val fimDate = fim?.let { inicioDoDiaEmUtc(LocalDate.parse(it).plusDays(1)).minusNanos(1000) }
         return comFotos(logRepository.filtrar(login, acao, inicioDate, fimDate))
     }
 

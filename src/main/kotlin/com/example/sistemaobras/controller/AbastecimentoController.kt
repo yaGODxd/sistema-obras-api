@@ -6,6 +6,7 @@ import com.example.sistemaobras.dto.AbastecimentoRequest
 import com.example.sistemaobras.dto.AbastecimentoResponse
 import com.example.sistemaobras.exception.StatusErroFixo
 import com.example.sistemaobras.service.AbastecimentoService
+import com.example.sistemaobras.service.DiarioDoEvento
 import com.example.sistemaobras.security.ControleAcesso
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
@@ -13,7 +14,8 @@ import org.springframework.web.bind.annotation.*
 @RestController
 @RequestMapping("/abastecimentos")
 class AbastecimentoController(
-    private val abastecimentoService: AbastecimentoService
+    private val abastecimentoService: AbastecimentoService,
+    private val diarioDoEvento: DiarioDoEvento
 ) {
 
     @PostMapping
@@ -24,6 +26,8 @@ class AbastecimentoController(
 
     @GetMapping("/diario/{diarioId}")
     fun listarPorDiario(@PathVariable diarioId: String): ResponseEntity<List<AbastecimentoResponse>> {
+        // Parte 6B: motorista só vê o próprio diário.
+        diarioDoEvento.porIdSeExistir(diarioId)?.let { diarioDoEvento.conferirDono(it) }
         return ResponseEntity.ok(abastecimentoService.listarPorDiario(diarioId))
     }
 

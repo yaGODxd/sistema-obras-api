@@ -71,7 +71,7 @@ class ValidacoesCadastroTest {
 
     @Test
     fun `placa repetida e recusada sem diferenciar traco e minusculas`() {
-        given(veiculoRepository.contarPorPlaca("ABC1D23", null)).willReturn(1L)
+        given(veiculoRepository.statusDosVeiculosComPlaca("ABC1D23", null)).willReturn(listOf("disponivel"))
         val erro = assertFailsWith<ConflitoException> { veiculoService.cadastrar(veiculo("abc-1d23")) }
         assertEquals("Já existe um veículo com esta placa.", erro.message)
     }
@@ -80,13 +80,21 @@ class ValidacoesCadastroTest {
     fun `na edicao o proprio veiculo nao conta como repetido`() {
         given(veiculoRepository.findById(UUID.fromString(id))).willReturn(Optional.of(Veiculo()))
         veiculoService.atualizar(id, veiculo("ABC1D23"))
-        verify(veiculoRepository).contarPorPlaca("ABC1D23", id)
+        verify(veiculoRepository).statusDosVeiculosComPlaca("ABC1D23", id)
     }
 
     @Test
     fun `veiculo sem placa nao confere unicidade`() {
         veiculoService.cadastrar(veiculo(""))
         veiculoService.cadastrar(veiculo(null))
-        verify(veiculoRepository, never()).contarPorPlaca(anyString(), isNull())
+        verify(veiculoRepository, never()).statusDosVeiculosComPlaca(anyString(), isNull())
+    }
+
+    @Test
+    fun `placa de veiculo inativo pede para reativar`() {
+        given(veiculoRepository.statusDosVeiculosComPlaca("ABC1D23", null)).willReturn(listOf("inativo"))
+        val erro = assertFailsWith<ConflitoException> { veiculoService.cadastrar(veiculo("abc 1d23")) }
+        assertEquals("Já existe um veículo inativo com esta placa. Reative-o em vez de cadastrar novo.", erro.message)
+        assertEquals("PLACA_DE_VEICULO_INATIVO", erro.codigo)
     }
 }

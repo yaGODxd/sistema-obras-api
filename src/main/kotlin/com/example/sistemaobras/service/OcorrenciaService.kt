@@ -1,7 +1,9 @@
 package com.example.sistemaobras.service
 
 import com.example.sistemaobras.exception.CodigosErro
+import com.example.sistemaobras.exception.ConflitoException
 import com.example.sistemaobras.exception.NaoEncontradoException
+import com.example.sistemaobras.exception.uuidValido
 import com.example.sistemaobras.exception.RegraNegocioException
 import com.example.sistemaobras.dto.ManutencaoVinculadaResponse
 import com.example.sistemaobras.dto.OcorrenciaDetalhadaResponse
@@ -29,19 +31,31 @@ class OcorrenciaService(
     private val usuarioRepository: UsuarioRepository,
     private val veiculoRepository: VeiculoRepository,
     private val manutencaoRepository: ManutencaoRepository,
-    private val logService: LogService
+    private val logService: LogService,
+    private val diarioDoEvento: DiarioDoEvento
 ) {
 
+    // Parte 6B: com diarioId vale esse diário (do próprio motorista); sem ele, o diário aberto agora.
+    // Diário assinado recusa (409); fora do período do diário só marca como suspeito.
     @Transactional
     fun registrar(request: OcorrenciaRequest): OcorrenciaResponse {
-        val diario = diarioBordoRepository.findDiarioAberto(request.loginMotorista)
-            ?: throw RegraNegocioException("Motorista não tem diário aberto")
+        val login = request.loginMotorista
+        val idLocal = request.idLocal?.takeIf { it.isNotBlank() }?.let { uuidValido(it) }
+        idLocal?.let { ocorrenciaRepository.findByIdLocal(it) }?.let { existente ->
+            val dono = existente.diarioId?.let { diarioDoEvento.porIdSeExistir(it.toString()) }?.dono
+            if (dono != login)
+                throw ConflitoException("Este idLocal já foi usado em outro registro.", CodigosErro.ID_LOCAL_EM_USO)
+            return toResponse(existente)
+        }
 
-        val registradoEm = if (request.registradoEm != null)
-            // registradoEm é um instante absoluto (epoch em ms): o banco guarda em UTC.
-            java.time.LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(request.registradoEm), java.time.ZoneOffset.UTC)
+        var horario = HorarioEvento.resolver(request.ocorridoEm, request.registradoEm, request.enviadoEm)
+        val diario = if (!request.diarioId.isNullOrBlank())
+            diarioDoEvento.porId(request.diarioId).also { diarioDoEvento.conferirDono(it) }
         else
-            java.time.LocalDateTime.now(java.time.ZoneOffset.UTC)
+            diarioBordoRepository.findDiarioAberto(login)?.let { diarioDoEvento.porId(it.id.toString()) }
+                ?: throw RegraNegocioException("Motorista não tem diário aberto", CodigosErro.SEM_DIARIO_ABERTO)
+        diarioDoEvento.conferirNaoAssinado(diario)
+        horario = horario.conferirJanela(diario.abertoEm, diario.fechadoEm, CodigosErro.FORA_DA_JANELA_DIARIO)
 
         val ocorrencia = Ocorrencia(
             diarioId = diario.id,
@@ -49,13 +63,18 @@ class OcorrenciaService(
             descricao = request.descricao,
             latitude = request.latitude?.let { BigDecimal.valueOf(it) },
             longitude = request.longitude?.let { BigDecimal.valueOf(it) },
-            registradoEm = registradoEm
+            registradoEm = horario.ocorrido,
+            recebidoEm = horario.recebido,
+            idLocal = idLocal,
+            desvioRelogioSeg = horario.desvioSeg,
+            horarioSuspeito = horario.suspeito,
+            motivoSuspeita = horario.motivoTexto
         )
 
         val salva = ocorrenciaRepository.save(ocorrencia)
 
         logService.registrar(
-            usuarioLogin = request.loginMotorista,
+            usuarioLogin = login,
             usuarioNome = null,
             acao = "OCORRENCIA",
             descricao = "Ocorrência registrada — Tipo: ${request.tipo}, Descrição: ${request.descricao}"
@@ -63,7 +82,6 @@ class OcorrenciaService(
 
         return toResponse(salva)
     }
-
     // Gestor muda o status à mão (ex.: ocorrência resolvida na hora, sem manutenção).
     @Transactional
     fun atualizarStatus(id: String, status: String): OcorrenciaResponse {
@@ -142,7 +160,11 @@ class OcorrenciaService(
         longitude = o.longitude?.toDouble(),
         registradoEm = o.registradoEm,
         status = o.status,
-        resolvidaEm = o.resolvidaEm
+        resolvidaEm = o.resolvidaEm,
+        recebidoEm = o.recebidoEm,
+        idLocal = o.idLocal,
+        horarioSuspeito = o.horarioSuspeito,
+        motivoSuspeita = o.motivoSuspeita
     )
 
     private fun toDetalhadaResponse(o: Ocorrencia): OcorrenciaDetalhadaResponse {

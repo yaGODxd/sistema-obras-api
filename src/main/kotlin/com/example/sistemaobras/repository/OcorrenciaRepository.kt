@@ -12,6 +12,9 @@ interface OcorrenciaRepository : JpaRepository<Ocorrencia, UUID> {
 
     fun findByStatusOrderByRegistradoEmDesc(status: String): List<Ocorrencia>
 
+    // Parte 6B: reenvio com o mesmo idLocal.
+    fun findByIdLocal(idLocal: UUID): Ocorrencia?
+
     @Query("""
         SELECT o.* FROM ocorrencias o
         INNER JOIN diarios_bordo d ON o.diario_id = d.id

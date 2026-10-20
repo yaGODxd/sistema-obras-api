@@ -11,17 +11,28 @@ import org.mockito.Mockito
 import org.mockito.Mockito.mock
 import java.time.Instant
 import java.time.LocalDateTime
+import java.time.ZoneOffset
 import java.util.UUID
 import kotlin.test.assertEquals
 
 // Parte 6A: o registradoEm (epoch em ms) é um instante absoluto e vira hora UTC.
 class HorarioUtcTest {
 
-    // 19/10/2026 12:00 em UTC (09:00 em Brasília).
-    private val instante = Instant.parse("2026-10-19T12:00:00Z").toEpochMilli()
-    private val esperadoUtc = LocalDateTime.of(2026, 10, 19, 12, 0)
+    // Uma hora atrás, em UTC (o epoch é um instante absoluto; o banco guarda UTC).
+    private val esperadoUtc = LocalDateTime.now(ZoneOffset.UTC).withNano(0).minusHours(1)
+    private val instante = esperadoUtc.toInstant(ZoneOffset.UTC).toEpochMilli()
 
     private val diarioRepository = mock(DiarioBordoRepository::class.java)
+    private val diarioDoEvento = mock(DiarioDoEvento::class.java)
+    private val diarioId = UUID.randomUUID()
+
+    // Diário aberto há 3 h, do motorista "m".
+    private fun diarioAberto() {
+        given(diarioRepository.findDiarioAberto("m")).willReturn(DiarioBordo(id = diarioId))
+        given(diarioDoEvento.porId(diarioId.toString())).willReturn(DiarioDoEvento.Diario(
+            diarioId, "m", "aberto", esperadoUtc.minusHours(2), null, UUID.randomUUID(), null, null, 0.0
+        ))
+    }
 
     @Suppress("UNCHECKED_CAST")
     private fun <T> qualquer(): T {
@@ -31,10 +42,10 @@ class HorarioUtcTest {
 
     @Test
     fun `abastecimento grava o registradoEm em UTC`() {
-        given(diarioRepository.temDiarioAberto("m")).willReturn(1L)
+        diarioAberto()
         val service = AbastecimentoService(
             mock(AbastecimentoRepository::class.java), diarioRepository,
-            mock(UsuarioRepository::class.java), mock(LogService::class.java)
+            mock(UsuarioRepository::class.java), mock(LogService::class.java), diarioDoEvento
         )
         val resposta = service.registrar(
             AbastecimentoRequest(loginMotorista = "m", tipoCombustivel = "diesel", litros = 10.0, valorTotal = 60.0, registradoEm = instante)
@@ -44,12 +55,13 @@ class HorarioUtcTest {
 
     @Test
     fun `ocorrencia grava o registradoEm em UTC`() {
-        given(diarioRepository.findDiarioAberto("m")).willReturn(DiarioBordo(id = UUID.randomUUID()))
+        diarioAberto()
         val ocorrenciaRepository = mock(OcorrenciaRepository::class.java)
         given(ocorrenciaRepository.save(qualquer<Ocorrencia>())).willAnswer { it.arguments[0] }
         val service = OcorrenciaService(
             ocorrenciaRepository, diarioRepository, mock(UsuarioRepository::class.java),
-            mock(VeiculoRepository::class.java), mock(ManutencaoRepository::class.java), mock(LogService::class.java)
+            mock(VeiculoRepository::class.java), mock(ManutencaoRepository::class.java), mock(LogService::class.java),
+            diarioDoEvento
         )
         val resposta = service.registrar(
             OcorrenciaRequest(loginMotorista = "m", tipo = "pneu", descricao = "furado", registradoEm = instante)

@@ -1,5 +1,6 @@
 package com.example.sistemaobras.service
 
+import com.example.sistemaobras.exception.CodigosErro
 import com.example.sistemaobras.exception.ConflitoException
 import com.example.sistemaobras.exception.NaoEncontradoException
 import com.example.sistemaobras.exception.RegraNegocioException
@@ -80,18 +81,26 @@ class VeiculoService(
         return toResponse(veiculo, tiposPorId())
     }
 
-    // Placa é opcional (máquinas não têm): texto vazio vira null.
-    private fun placaInformada(request: VeiculoRequest): String? = request.placa?.takeIf { it.isNotBlank() }
+    // Placa é opcional (máquinas não têm). Normalização (decisão 19/10): maiúscula, sem hífen
+    // e sem espaço; vazio vira null (dois '' colidiriam no índice único veiculos_placa_key).
+    private fun placaInformada(request: VeiculoRequest): String? =
+        request.placa?.uppercase()?.replace("-", "")?.replace(" ", "")?.takeIf { it.isNotEmpty() }
 
+    // O banco tem índice único na placa, inclusive de veículo inativo (inativo segura a placa).
     private fun conferirPlacaUnica(placa: String?, ignorarId: String?) {
         if (placa == null) return
         // Mesma normalização da consulta: só A-Z e 0-9.
         val normalizada = placa.uppercase().filter { it in 'A'..'Z' || it in '0'..'9' }
         if (normalizada.isEmpty()) return
-        if (veiculoRepository.contarPorPlaca(normalizada, ignorarId) > 0)
-            throw ConflitoException("Já existe um veículo com esta placa.")
+        val status = veiculoRepository.statusDosVeiculosComPlaca(normalizada, ignorarId)
+        if (status.any { it != "inativo" })
+            throw ConflitoException("Já existe um veículo com esta placa.", CodigosErro.PLACA_EM_USO)
+        if (status.isNotEmpty())
+            throw ConflitoException(
+                "Já existe um veículo inativo com esta placa. Reative-o em vez de cadastrar novo.",
+                CodigosErro.PLACA_DE_VEICULO_INATIVO
+            )
     }
-
     fun cadastrar(request: VeiculoRequest) {
         val tipoId = request.tipoId?.takeIf { it.isNotBlank() }
             ?: throw RegraNegocioException("Campo 'tipoId' é obrigatório.")

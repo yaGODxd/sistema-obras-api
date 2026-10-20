@@ -2,6 +2,7 @@ package com.example.sistemaobras.service
 
 import com.example.sistemaobras.dto.AbrirDiarioRequest
 import com.example.sistemaobras.dto.PecaRequest
+import com.example.sistemaobras.dto.TurnoRequest
 import com.example.sistemaobras.entity.DiarioBordo
 import com.example.sistemaobras.entity.Manutencao
 import com.example.sistemaobras.entity.ManutencaoPeca
@@ -11,7 +12,11 @@ import com.example.sistemaobras.exception.NaoEncontradoException
 import com.example.sistemaobras.exception.RegraNegocioException
 import com.example.sistemaobras.repository.*
 import org.junit.jupiter.api.Test
+import org.mockito.ArgumentMatchers.anyBoolean
+import org.mockito.ArgumentMatchers.anyDouble
 import org.mockito.ArgumentMatchers.anyString
+import org.mockito.ArgumentMatchers.eq
+import org.mockito.ArgumentMatchers.isNull
 import org.mockito.BDDMockito.given
 import org.mockito.Mockito
 import org.mockito.Mockito.mock
@@ -26,6 +31,12 @@ import kotlin.test.assertFailsWith
 // Parte 5: bloqueios no servidor (itens 9 e 15) e os opcionais aprovados da Parte 4.
 class Parte5RegrasTest {
 
+    // Mockito.eq() devolve null; o Kotlin barraria null num parâmetro não nulo.
+    private fun <T> igual(valor: T): T {
+        Mockito.eq(valor)
+        return valor
+    }
+
     @Suppress("UNCHECKED_CAST")
     private fun <T> qualquer(): T {
         Mockito.any<T>()
@@ -37,12 +48,29 @@ class Parte5RegrasTest {
     private val diarioRepository = mock(DiarioBordoRepository::class.java)
     private val turnoRepository = mock(TurnoRepository::class.java)
     private val assinaturaRepository = mock(AssinaturaRepository::class.java)
+    private val diarioDoEvento = mock(DiarioDoEvento::class.java)
     private val diarioService = DiarioBordoService(
-        diarioRepository, turnoRepository, mock(VeiculoRepository::class.java), mock(LogService::class.java), assinaturaRepository
+        diarioRepository, turnoRepository, mock(VeiculoRepository::class.java), mock(LogService::class.java),
+        assinaturaRepository, diarioDoEvento
     )
     private val abrir = AbrirDiarioRequest(loginMotorista = "ana", veiculoId = UUID.randomUUID().toString(), medidorInicial = 10.0)
+    private val sairDeServico = TurnoRequest(login = "ana")
 
-    private fun motoristaEmServico() = given(turnoRepository.temTurnoAberto("ana")).willReturn(1L)
+    // Turno aberto (temTurnoAberto para abrir diário; buscarTurnoAberto para sair de serviço).
+    private fun motoristaEmServico() {
+        given(turnoRepository.temTurnoAberto("ana")).willReturn(1L)
+        given(turnoRepository.buscarTurnoAberto("ana")).willReturn(listOf(
+            arrayOf<Any?>(UUID.randomUUID().toString(), "ana", "aberto", "2026-10-19 08:00:00", null, null, null)
+        ))
+    }
+
+    private fun naoAbriuDiario() = verify(diarioRepository, never()).abrirDiario(
+        anyString(), anyString(), qualquer(), qualquer(), anyDouble(), qualquer(), qualquer(), qualquer(), qualquer(), anyBoolean(), qualquer()
+    )
+
+    private fun fechouTurno(vezes: Int) = verify(turnoRepository, Mockito.times(vezes)).fecharTurno(
+        anyString(), qualquer(), qualquer(), qualquer(), anyBoolean(), qualquer()
+    )
 
     @Test
     fun `abrir diario sem PIN e recusado`() {
@@ -50,7 +78,7 @@ class Parte5RegrasTest {
         val erro = assertFailsWith<RegraNegocioException> { diarioService.abrirDiario(abrir) }
         assertEquals("Cadastre seu PIN de assinatura antes de abrir um diário.", erro.message)
         assertEquals("PIN_AUSENTE", erro.codigo)
-        verify(diarioRepository, never()).abrirDiario(anyString(), anyString(), Mockito.any(), Mockito.any(), Mockito.anyDouble())
+        naoAbriuDiario()
     }
 
     @Test
@@ -71,14 +99,14 @@ class Parte5RegrasTest {
         motoristaEmServico()
         assertFailsWith<RegraNegocioException> { diarioService.abrirDiario(abrir) }
         given(diarioRepository.temDiarioAberto("ana")).willReturn(1L)
-        assertFailsWith<RegraNegocioException> { turnoService.fecharTurno("ana") }
+        assertFailsWith<RegraNegocioException> { turnoService.fecharTurno(sairDeServico) }
     }
 
     @Test
     fun `com o interruptor desligado abre diario sem PIN e com pendente`() {
         val semBloqueios = DiarioBordoService(
             diarioRepository, turnoRepository, mock(VeiculoRepository::class.java), mock(LogService::class.java),
-            assinaturaRepository, bloqueiosAtivos = false
+            assinaturaRepository, diarioDoEvento, bloqueiosAtivos = false
         )
         motoristaEmServico()
         given(diarioRepository.contarPendentesDeAssinatura("ana")).willReturn(3L)   // e sem PIN (padrão 0)
@@ -86,7 +114,9 @@ class Parte5RegrasTest {
 
         semBloqueios.abrirDiario(abrir)
 
-        verify(diarioRepository).abrirDiario("ana", abrir.veiculoId, null, null, 10.0)
+        verify(diarioRepository).abrirDiario(
+            igual("ana"), igual(abrir.veiculoId), isNull(), isNull(), eq(10.0), qualquer(), qualquer(), isNull(), isNull(), eq(false), isNull()
+        )
     }
 
     @Test
@@ -94,8 +124,8 @@ class Parte5RegrasTest {
         val semBloqueios = TurnoService(turnoRepository, mock(UsuarioRepository::class.java), diarioRepository, bloqueiosAtivos = false)
         motoristaEmServico()
         given(diarioRepository.temDiarioAberto("ana")).willReturn(1L)
-        semBloqueios.fecharTurno("ana")
-        verify(turnoRepository).fecharTurno("ana")
+        semBloqueios.fecharTurno(sairDeServico)
+        fechouTurno(1)
     }
 
     // ---------- Sair de serviço ----------
@@ -106,18 +136,18 @@ class Parte5RegrasTest {
     fun `sair de servico com diario aberto e recusado`() {
         motoristaEmServico()
         given(diarioRepository.temDiarioAberto("ana")).willReturn(1L)
-        val erro = assertFailsWith<RegraNegocioException> { turnoService.fecharTurno("ana") }
+        val erro = assertFailsWith<RegraNegocioException> { turnoService.fecharTurno(sairDeServico) }
         assertEquals("Você tem um diário aberto. Feche o diário antes de sair de serviço.", erro.message)
         assertEquals("TURNO_COM_DIARIO_ABERTO", erro.codigo)
-        verify(turnoRepository, never()).fecharTurno(anyString())
+        fechouTurno(0)
     }
 
     @Test
     fun `sair de servico com diario so pendente de assinatura e permitido`() {
         motoristaEmServico()
         given(diarioRepository.contarPendentesDeAssinatura("ana")).willReturn(1L)
-        turnoService.fecharTurno("ana")
-        verify(turnoRepository).fecharTurno("ana")
+        turnoService.fecharTurno(sairDeServico)
+        fechouTurno(1)
     }
 
     // ---------- Editar peça ----------

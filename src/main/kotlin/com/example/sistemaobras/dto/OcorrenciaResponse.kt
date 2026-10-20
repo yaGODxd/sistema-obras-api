@@ -12,5 +12,10 @@ data class OcorrenciaResponse(
     val longitude: Double?,
     val registradoEm: LocalDateTime,
     val status: String = "pendente",
-    val resolvidaEm: LocalDateTime? = null
+    val resolvidaEm: LocalDateTime? = null,
+    // Parte 6B: hora em que o servidor recebeu e marcação de horário suspeito.
+    val recebidoEm: LocalDateTime? = null,
+    val idLocal: UUID? = null,
+    val horarioSuspeito: Boolean = false,
+    val motivoSuspeita: String? = null
 )

@@ -115,7 +115,7 @@ class Parte4Test {
 
     private fun diarioService(repo: DiarioBordoRepository) = DiarioBordoService(
         repo, mock(TurnoRepository::class.java), mock(VeiculoRepository::class.java), mock(LogService::class.java),
-        mock(AssinaturaRepository::class.java)
+        mock(AssinaturaRepository::class.java), mock(DiarioDoEvento::class.java)
     )
 
     @Test
@@ -158,7 +158,7 @@ class Parte4Test {
             Abastecimento(tipoCombustivel = "diesel", litros = BigDecimal.TEN),
             Abastecimento(tipoCombustivel = "diesel", litros = BigDecimal.TEN, veiculoAbastecidoId = outro)
         ))
-        val lista = AbastecimentoService(repo, mock(DiarioBordoRepository::class.java), mock(UsuarioRepository::class.java), mock(LogService::class.java))
+        val lista = AbastecimentoService(repo, mock(DiarioBordoRepository::class.java), mock(UsuarioRepository::class.java), mock(LogService::class.java), mock(DiarioDoEvento::class.java))
             .listarPorDiario("d")
         assertFalse(lista[0].comboio)
         assertTrue(lista[1].comboio)

@@ -3,7 +3,9 @@ package com.example.sistemaobras.controller
 import jakarta.validation.Valid
 import com.example.sistemaobras.dto.*
 import com.example.sistemaobras.entity.ChecklistItem
-import com.example.sistemaobras.entity.ChecklistResposta
+import com.example.sistemaobras.exception.uuidValido
+import com.example.sistemaobras.service.DiarioDoEvento
+import com.example.sistemaobras.service.HorarioEvento
 import com.example.sistemaobras.entity.ChecklistTemplate
 import com.example.sistemaobras.repository.ChecklistItemRepository
 import com.example.sistemaobras.repository.ChecklistRespostaRepository
@@ -17,7 +19,8 @@ import java.util.UUID
 class ChecklistController(
     private val templateRepository: ChecklistTemplateRepository,
     private val itemRepository: ChecklistItemRepository,
-    private val respostaRepository: ChecklistRespostaRepository
+    private val respostaRepository: ChecklistRespostaRepository,
+    private val diarioDoEvento: DiarioDoEvento
 ) {
 
     // ==================== TEMPLATES ====================
@@ -74,19 +77,27 @@ class ChecklistController(
 
     @PostMapping("/respostas")
     fun salvarRespostas(@Valid @RequestBody request: ChecklistRespostaRequest): ResponseEntity<Void> {
+        // Parte 6B: diário do próprio motorista (403), não assinado (409); reenvio só
+        // atualiza a resposta, e um reenvio mais antigo não desfaz uma resposta mais nova.
+        val diario = diarioDoEvento.porId(request.diarioId)
+        diarioDoEvento.conferirDono(diario)
+        diarioDoEvento.conferirNaoAssinado(diario)
+        val horario = HorarioEvento.resolver(request.ocorridoEm, null, request.enviadoEm)
         request.respostas.forEach { r ->
-            respostaRepository.save(ChecklistResposta(
-                diarioId = UUID.fromString(request.diarioId),
-                itemId = UUID.fromString(r.itemId),
+            respostaRepository.gravarResposta(
+                diarioId = diario.id.toString(),
+                itemId = uuidValido(r.itemId).toString(),
                 ok = r.ok,
-                observacao = r.observacao
-            ))
+                observacao = r.observacao,
+                registradoEm = horario.ocorrido,
+                recebidoEm = horario.recebido
+            )
         }
         return ResponseEntity.ok().build()
     }
-
     @GetMapping("/respostas/diario/{diarioId}")
     fun buscarRespostasDiario(@PathVariable diarioId: String): ResponseEntity<List<ChecklistRespostaResponse>> {
+        diarioDoEvento.porIdSeExistir(diarioId)?.let { diarioDoEvento.conferirDono(it) }
         return ResponseEntity.ok(respostaRepository.findByDiarioId(diarioId).map { row ->
             ChecklistRespostaResponse(
                 id = UUID.fromString(row[0].toString()),

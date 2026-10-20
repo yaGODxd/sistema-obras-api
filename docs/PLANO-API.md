@@ -153,11 +153,25 @@ Depois PARE e espere "pode começar a parte 1".
   - Comboio offline: resolver o diário pelo veículo + hora do evento (aberto_em <= ocorridoEm <= COALESCE(fechado_em, agora)), aceitando fechado não assinado; propor regra de ControleAcesso (dono do token não é dono do diário); avaliar coluna registrado_por (uuid, nula) em abastecimentos.
   - Não usar as colunas "sincronizado" para idempotência. Enum resposta_checklist e status_veiculo 'manutencao': legado, não mexer.
 
+### Parte 6C - fuso na exibição (19/10)
+- FEITO: corte de dia de /logs (inicio/fim são dias de Brasília, convertidos para o intervalo UTC) e corte de mês/ano de /diarios, /diarios/resumo-mensal e /diarios/meus (EXTRACT sobre aberto_em AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo'). Resumo semanal (últimos 7 dias corridos) não depende de fuso.
+- PROPOSTA (aguarda OK): datas com fuso nas respostas, atrás do interruptor APP_DATAS_COM_FUSO (padrão false). Ver relatório da 6C.
+
 ### Parte 6B - andamento
 - ETAPA 0 (FEITA 19/10): consultas que liam "a.*"/"cr.*" por posição (3 listas de abastecimento e as respostas do checklist) passaram a ter colunas explícitas; fechar diário deixou de forçar o veículo para disponivel (o trigger cuida). Precisa ir ao ar ANTES do SQL 1 da 6B: com o código antigo, colunas novas nessas tabelas quebrariam as telas.
 - SQL 1 (colunas e índices) e SQL 2 (triggers novos + rollback com o texto original) gravados em docs/migracoes.sql, comentados, para revisão. registrado_por em abastecimentos entra como PROPOSTA.
 - Ordem de deploy: (1) lote Passo 1 + etapa 0; (2) SQL 1; (3) código da 6B. SQL 2 independe do deploy, só depois da revisão do coordenador.
-- Código da 6B: retomar só quando o Yago disser "continue a 6B" (depois do deploy (1)).
+- CÓDIGO DA 6B: FEITO em 19/10 (falta SQL 1 + deploy). Resumo:
+  - HorarioEvento: ocorridoEm (ISO com fuso) > registradoEm (ms) > hora do servidor; futuro até 24 h marca, acima recusa 422 HORARIO_FUTURO; > 7 dias marca HORARIO_ANTIGO; enviadoEm com desvio > 5 min marca DESVIO_RELOGIO; fora do período do diário/turno marca FORA_DA_JANELA_DIARIO/TURNO.
+  - DiarioDoEvento: acha o diário por id, por idLocal ou pelo veículo + horário; confere dono (403 DIARIO_DE_OUTRO_MOTORISTA) e assinado (409 DIARIO_ASSINADO).
+  - Turno, diário (abrir/fechar), abastecimento, ocorrência e rastreamento: hora do evento, recebido_em, idLocal (reenvio devolve o já gravado; de outro motorista 409 ID_LOCAL_EM_USO), suspeita.
+  - Rotas novas: POST /diarios/{id}/fechar e POST /rastreamento/lote (máx. 200; resultado por ponto). Matriz: as duas só motorista.
+  - Comboio offline: diário do veículo abastecido no horário do evento (aceita fechado não assinado); registrado_por = usuário do token. Regra proposta de ControleAcesso: só MARCA (COMBOIO_SEM_DIARIO) quando quem registra não dirigia veículo de comboio no horário; recusar fica para decisão.
+  - Checklist: upsert por (diario_id, item_id) sem desfazer resposta mais nova; dono e assinado conferidos (antes, reenvio dava 500).
+  - Consultas por id de diário (abastecimentos, ocorrências, rastreamento, respostas do checklist): motorista só vê o próprio.
+  - /rastreamento/posicoes: pela hora do evento, ignorando ponto > 5 min à frente do recebido_em. Descarte de pontos próximos pela hora do evento, no mesmo diário, com acos protegido.
+  - Placa: normalizada (maiúscula, sem hífen/espaço, vazio -> null); inativo segura a placa (PLACA_DE_VEICULO_INATIVO). Perfil tolerante (administrador e desconhecido).
+  - Reenvio simultâneo barrado pelo índice único: 409 REENVIO_SIMULTANEO (rotas antigas: status fixo).
 - Decisões 19/10 (coordenador): pausa, etapa 0 e ordem de deploy APROVADAS. registrado_por (uuid, nulo) em abastecimentos APROVADO: preencher com o usuário do token; antigos ficam nulos. /rastreamento/posicoes: ordenar pela hora do evento, SEM COALESCE, ignorando pontos com hora do evento mais de 5 min à frente do recebido_em (relógio adiantado não esconde a posição real). Arquivo para revisão: docs/para-revisao.txt.
 
 ### Parte 6B - PROPOSTA (19/10, aguardando as consultas C1-C6 de docs/migracoes.sql e as respostas do Yago)

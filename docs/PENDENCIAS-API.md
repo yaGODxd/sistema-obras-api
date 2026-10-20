@@ -18,6 +18,7 @@ Regra de deploy: o Dockerfile faz COPY build/libs/*.jar. Depois de mudar o códi
 ## Itens
 
 1. Horário do evento (uso offline)
+   - FEITO (Parte 6B, 19/10, falta SQL 1 + deploy): ver PLANO "Parte 6B - andamento". App: mandar ocorridoEm, idLocal, enviadoEm e diarioId; usar POST /diarios/{id}/fechar e POST /rastreamento/lote; tratar os códigos (5xx/REENVIO_SIMULTANEO = tentar de novo; demais 4xx = erro de regra).
    - FEITO (Parte 6A, 19/10, falta deploy): registradoEm convertido com UTC; hora do servidor em UTC explícito (código, fuso da aplicação e sessão do banco). Registros antigos: pré-visualização e correção (+3 h, só com autorização) no bloco "Parte 6A" de docs/migracoes.sql. Abastecimentos de diário assinado não são corrigidos (entram no resumo da assinatura).
    - ACHADO (18/10, lendo o código): AbastecimentoRequest e OcorrenciaRequest JÁ aceitam `registradoEm` (Long, epoch em milissegundos). O service converte com ZoneId America/Sao_Paulo e grava hora LOCAL de Brasília. Sem o campo, grava LocalDateTime.now() (UTC no Render). Resultado: o banco mistura os dois fusos (registros com registradoEm = Brasília; o resto = UTC). Corrigir: converter com ZoneOffset.UTC. Registros antigos enviados com registradoEm ficam 3 h diferentes: avaliar migração.
    - Abrir diário, fechar diário e rastreamento NÃO têm campo de horário (usam o relógio do servidor, UTC).
@@ -65,9 +66,11 @@ Regra de deploy: o Dockerfile faz COPY build/libs/*.jar. Depois de mudar o códi
    - Pendência registrada na Parte 2 do front. Recuperar o texto exato no relatório do Claude Code e conferir se Authorization está em allowedHeaders.
 
 5. Fuso do corte de dia e de mês
+   - FEITO (Parte 6C, 19/10, falta deploy): /logs e filtros de mês/ano dos diários em America/Sao_Paulo.
    - /logs (corte do dia) e /diarios (corte do mês) podem estar cortando em UTC. Decidir: America/Sao_Paulo. Pendência registrada na Parte 3 do front.
 
 6. Datas com fuso
+   - PROPOSTA (Parte 6C, 19/10): serializar com Z atrás do interruptor APP_DATAS_COM_FUSO (padrão false); ligar só depois de confirmar como o app lê as datas.
    - Hoje LocalDateTime sai sem fuso (ex.: 2026-10-18T13:08:00). Passar a serializar com Z/offset de forma consistente. O interceptor do front só mexe em texto sem fuso, então é compatível.
 
 7. Foto fora das listas (condicional)

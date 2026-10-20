@@ -1,7 +1,9 @@
 package com.example.sistemaobras.service
 
 import com.example.sistemaobras.exception.CodigosErro
+import com.example.sistemaobras.exception.ConflitoException
 import com.example.sistemaobras.exception.RegraNegocioException
+import com.example.sistemaobras.exception.uuidValido
 import com.example.sistemaobras.dto.AbrirDiarioRequest
 import com.example.sistemaobras.dto.DiarioDetalheResponse
 import com.example.sistemaobras.exception.NaoEncontradoException
@@ -23,49 +25,66 @@ class DiarioBordoService(
     private val veiculoRepository: VeiculoRepository,
     private val logService: LogService,
     private val assinaturaRepository: AssinaturaRepository,
+    private val diarioDoEvento: DiarioDoEvento,
     // APP_BLOQUEIOS_DIARIO=false desliga os bloqueios dos itens 9 e 15 (motorista travado).
     @Value("\${app.bloqueios.diario:true}") private val bloqueiosAtivos: Boolean = true
 ) {
 
     // Diário, status do veículo e log: tudo ou nada (o log tem transação própria).
+    // Parte 6B: aberto_em = hora do evento (ocorridoEm); reenvio com o mesmo idLocal devolve o diário já aberto.
     @Transactional
     fun abrirDiario(request: AbrirDiarioRequest): DiarioResponse {
-        if (turnoRepository.temTurnoAberto(request.loginMotorista) == 0L)
+        val login = request.loginMotorista
+        val idLocal = request.idLocal?.takeIf { it.isNotBlank() }?.let { uuidValido(it) }
+        idLocal?.let { diarioDoEvento.porIdLocalAbertura(it) }?.let { return jaRecebido(it, login) }
+
+        if (turnoRepository.temTurnoAberto(login) == 0L)
             throw RegraNegocioException("Motorista não tem turno aberto")
 
-        if (diarioRepository.temDiarioAberto(request.loginMotorista) > 0)
+        if (diarioRepository.temDiarioAberto(login) > 0)
             throw RegraNegocioException("Motorista já tem um diário aberto")
 
         // Item 9: bloqueios que antes só o app fazia (interruptor APP_BLOQUEIOS_DIARIO).
         if (bloqueiosAtivos) {
-            if (assinaturaRepository.contarPinDefinido(request.loginMotorista) == 0L)
+            if (assinaturaRepository.contarPinDefinido(login) == 0L)
                 throw RegraNegocioException("Cadastre seu PIN de assinatura antes de abrir um diário.", CodigosErro.PIN_AUSENTE)
-            if (diarioRepository.contarPendentesDeAssinatura(request.loginMotorista) > 0)
+            if (diarioRepository.contarPendentesDeAssinatura(login) > 0)
                 throw RegraNegocioException(
                     "Você tem um diário fechado aguardando assinatura. Assine-o antes de abrir outro.",
                     CodigosErro.DIARIO_PENDENTE_ASSINATURA
                 )
         }
 
+        var horario = HorarioEvento.resolver(request.ocorridoEm, null, request.enviadoEm)
+        diarioRepository.aberturaDoTurnoAberto(login).firstOrNull()?.let {
+            horario = horario.conferirJanela(dataHora(it)!!, null, CodigosErro.FORA_DA_JANELA_TURNO)
+        }
+
         diarioRepository.abrirDiario(
-            login = request.loginMotorista,
+            login = login,
             veiculoId = request.veiculoId,
             motivoUsoId = request.motivoUsoId,
             destino = request.destino,
-            medidorInicial = request.medidorInicial
+            medidorInicial = request.medidorInicial,
+            abertoEm = horario.ocorrido,
+            recebidoEm = horario.recebido,
+            idLocal = idLocal?.toString(),
+            desvio = horario.desvioSeg,
+            suspeito = horario.suspeito,
+            motivo = horario.motivoTexto
         )
 
-        val diario = diarioRepository.findDiarioAberto(request.loginMotorista)!!
+        val diario = diarioRepository.findDiarioAberto(login)!!
 
         val veiculo = try {
             veiculoRepository.findById(java.util.UUID.fromString(request.veiculoId)).orElse(null)
         } catch (e: Exception) { null }
 
-        // Marca o veículo como em_uso
+        // Marca o veículo como em_uso (o trigger fn_abre_diario também faz isso)
         veiculoRepository.atualizarStatus(request.veiculoId, "em_uso")
 
         logService.registrar(
-            usuarioLogin = request.loginMotorista,
+            usuarioLogin = login,
             usuarioNome = null,
             acao = "ABRIR_DIARIO",
             descricao = "Diário aberto — Veículo: ${veiculo?.descricao ?: request.veiculoId}" +
@@ -77,7 +96,7 @@ class DiarioBordoService(
             id = diario.id,
             veiculoDescricao = veiculo?.descricao ?: "",
             veiculoPlaca = veiculo?.placa,
-            motoristaNome = request.loginMotorista,
+            motoristaNome = login,
             medidorInicial = diario.medidorInicial.toDouble(),
             medidorFinal = null,
             medidorPercorrido = null,
@@ -90,29 +109,66 @@ class DiarioBordoService(
         )
     }
 
+    // POST /diarios/fechar/{login} (rota antiga). Reenvio com o mesmo idLocal devolve o diário já fechado.
     @Transactional
     fun fecharDiario(login: String, request: FecharDiarioRequest): DiarioResponse {
-        val diario = diarioRepository.findDiarioAberto(login)
-            ?: throw RegraNegocioException("Não há diário aberto para este motorista")
+        val idLocal = request.idLocal?.takeIf { it.isNotBlank() }?.let { uuidValido(it) }
+        idLocal?.let { diarioDoEvento.porIdLocalFechamento(it) }?.let { return jaRecebido(it, login) }
 
+        val aberto = diarioRepository.findDiarioAberto(login)
+            ?: throw RegraNegocioException("Não há diário aberto para este motorista", CodigosErro.SEM_DIARIO_ABERTO)
+        return fechar(diarioDoEvento.porId(aberto.id.toString()), request, idLocal)
+    }
+
+    // POST /diarios/{id}/fechar (rota nova, Parte 6B): 404 diário não existe, 403 de outro motorista,
+    // 409 DIARIO_JA_FECHADO (já fechado por outro envio) ou ID_LOCAL_EM_USO.
+    @Transactional
+    fun fecharDiarioPorId(id: String, request: FecharDiarioRequest): DiarioResponse {
+        val diario = diarioDoEvento.porId(id)
+        diarioDoEvento.conferirDono(diario)
+        val idLocal = request.idLocal?.takeIf { it.isNotBlank() }?.let { uuidValido(it) }
+        if (idLocal != null) {
+            if (diario.idLocalFechamento == idLocal) return respostaPorId(diario.id)
+            diarioDoEvento.porIdLocalFechamento(idLocal)?.let {
+                throw ConflitoException("Este idLocal já foi usado em outro registro.", CodigosErro.ID_LOCAL_EM_USO)
+            }
+        }
+        if (!diario.aberto)
+            throw ConflitoException("Este diário já foi fechado.", CodigosErro.DIARIO_JA_FECHADO)
+        return fechar(diario, request, idLocal)
+    }
+
+    private fun fechar(diario: DiarioDoEvento.Diario, request: FecharDiarioRequest, idLocal: java.util.UUID?): DiarioResponse {
         // Troca de hodômetro não é tratada (limitação documentada).
-        if (request.medidorFinal < diario.medidorInicial.toDouble())
+        if (request.medidorFinal < diario.medidorInicial)
             throw RegraNegocioException("O medidor final não pode ser menor que o medidor inicial.")
 
-        diarioRepository.fecharDiario(
+        val horario = HorarioEvento.resolver(request.ocorridoEm, null, request.enviadoEm)
+            .conferirJanela(diario.abertoEm, null, CodigosErro.FORA_DA_JANELA_DIARIO)
+
+        val alterados = diarioRepository.fecharDiario(
             id = diario.id.toString(),
             medidorFinal = request.medidorFinal,
-            observacao = request.observacaoFechamento
+            observacao = request.observacaoFechamento,
+            fechadoEm = horario.ocorrido,
+            recebidoEm = horario.recebido,
+            idLocal = idLocal?.toString(),
+            desvio = horario.desvioSeg,
+            suspeito = horario.suspeito,
+            motivo = horario.motivoTexto
         )
+        // Outro envio fechou o diário entre a leitura e o UPDATE.
+        if (alterados == 0)
+            throw ConflitoException("Este diário já foi fechado.", CodigosErro.DIARIO_JA_FECHADO)
 
         // O status do veículo (e o medidor_atual) é atualizado pelo trigger fn_fecha_diario
         // no próprio UPDATE. Não sobrescrever aqui: a versão nova do trigger (Parte 6B)
         // deixa em_manutencao quando há manutenção aberta.
 
-        val percorrido = request.medidorFinal - diario.medidorInicial.toDouble()
+        val percorrido = request.medidorFinal - diario.medidorInicial
 
         logService.registrar(
-            usuarioLogin = login,
+            usuarioLogin = diario.dono,
             usuarioNome = null,
             acao = "FECHAR_DIARIO",
             descricao = "Diário fechado — Medidor final: ${request.medidorFinal}, Percorrido: ${"%.1f".format(percorrido)}"
@@ -122,19 +178,28 @@ class DiarioBordoService(
             id = diario.id,
             veiculoDescricao = "",
             veiculoPlaca = null,
-            motoristaNome = login,
-            medidorInicial = diario.medidorInicial.toDouble(),
+            motoristaNome = diario.dono,
+            medidorInicial = diario.medidorInicial,
             medidorFinal = request.medidorFinal,
             medidorPercorrido = percorrido,
-            destino = diario.destino,
+            destino = null,
             status = "fechado",
             abertoEm = diario.abertoEm,
-            fechadoEm = java.time.LocalDateTime.now(java.time.ZoneOffset.UTC),
+            fechadoEm = horario.ocorrido,
             veiculoId = diario.veiculoId,
             tipoMedidor = tipoMedidor(diario.veiculoId)
         )
     }
 
+    // Reenvio: devolve o diário já gravado se for do mesmo motorista; senão 409 ID_LOCAL_EM_USO.
+    private fun jaRecebido(diario: DiarioDoEvento.Diario, login: String): DiarioResponse {
+        if (diario.dono != login)
+            throw ConflitoException("Este idLocal já foi usado em outro registro.", CodigosErro.ID_LOCAL_EM_USO)
+        return respostaPorId(diario.id)
+    }
+
+    private fun respostaPorId(id: java.util.UUID): DiarioResponse =
+        linhaParaDiario(diarioRepository.buscarDetalhe(id.toString()).first())
     fun buscarDiarioAberto(login: String): DiarioResponse? {
         return try {
             val rows = diarioRepository.findDiarioAbertoDetalhado(login)

@@ -1,36 +1,50 @@
-Comecei a 6B e parei de propósito depois da etapa 0, porque há um risco de deploy: se o SQL da 6B rodar com o código atual no ar, quatro telas quebram (três listas de abastecimento e as respostas do checklist). Não fiz commit e não conectei ao banco.
+A primeira metade da 6C (cortes de dia e de mês no fuso de Brasília) está pronta. A segunda metade, datas com fuso nas respostas, ficou como proposta e espera o seu OK, porque pode quebrar o app. Não fiz commit e não conectei ao banco.
 
-**O problema:** essas consultas buscavam todas as colunas da tabela (`SELECT a.*`) e liam o resultado pela posição de cada coluna. O SQL da 6B acrescenta colunas novas no fim das tabelas `abastecimentos` e `checklist_respostas`, e isso desloca as posições.
+## Relatório da 6C (corte de dia e de mês)
 
-As telas afetadas:
-- `GET /abastecimentos`, `/abastecimentos/veiculo/{id}` e `/abastecimentos/motorista/{login}`;
-- `GET /checklist/respostas/diario/{id}`.
+**1. O que mudou**
+- **`/logs`:** os filtros `inicio` e `fim` passam a ser dias de Brasília.
+  - O banco guarda UTC. Por isso, o dia 19 em Brasília vira o intervalo de 19/10 03:00 até 20/10 02:59:59 em UTC.
+  - Antes, um log das 22h de Brasília caía no dia seguinte.
+- **Diários (`/diarios`, `/diarios/resumo-mensal`, `/diarios/meus`):** o filtro de mês e ano passou a usar a hora de Brasília. Um diário aberto às 22h do dia 31 em Brasília já é 01h do dia 1º em UTC e ia para o mês seguinte. Agora fica no mês certo.
+- **Resumo semanal do motorista:** não mudou, porque conta os últimos 7 dias a partir de agora e isso não depende de fuso.
+- **Teste:** 1 novo em `LogServiceTest`, conferindo o intervalo UTC de um dia de Brasília.
+- **Docs:** `PLANO-API.md` (seção 6C) e `PENDENCIAS-API.md` (itens 5 e 6).
 
-Como a regra é que o SQL rode antes do deploy, essas telas ficariam quebradas até o código novo subir.
+**2. SQL:** nenhum.
+**3. Variáveis no Render:** nenhuma.
 
-## Etapa 0 (pronta)
-- **Colunas explícitas:** as quatro consultas agora listam as colunas uma por uma. Funcionam com o banco de hoje e com as colunas novas.
-- **Fechar diário:** o código deixou de forçar o veículo para `disponivel` depois do fechamento.
-  - Com o trigger atual não muda nada, porque o próprio trigger já faz isso.
-  - Com o trigger novo, o código não vai mais desfazer o `em_manutencao`.
-- **SQL da 6B gravado para revisão** em `docs/migracoes.sql`, todo comentado:
-  - **SQL 1:** colunas e índices com os ajustes do coordenador. Inclui `registrado_por` em abastecimentos, que guarda quem registrou (no comboio, não é o dono do diário). Está marcado como proposta, esperando o OK dele.
-  - **SQL 2:** os dois triggers novos, com o texto exato, mais o texto original de cada um como rollback.
-  - **Topo do arquivo:** a nota de que as colunas de data guardam UTC.
-- **Testes:** 96 passaram, 0 falhas, 1 desligado. **O jar mudou: sim.**
-- **Docs:** `PLANO-API.md` (andamento da 6B) e `PENDENCIAS-API.md` (achado).
+**4. Testes e jar**
+- `.\gradlew.bat test`: BUILD SUCCESSFUL, 121 passaram, 0 falhas, 1 desligado.
+- `.\gradlew.bat bootJar`: BUILD SUCCESSFUL. **O jar mudou: sim.**
 
-## Ordem de deploy
-1. **Agora, o lote:** PASSO 1 + etapa 0, com tudo o que está no diretório.
-   - Rodar o diagnóstico do bloco "Parte 5" (só leitura).
-   - Rodar o bloco "Ocorrências: vocabulário do banco" e terminar com `COMMIT`.
-   - Commitar com o jar, dar push e testar as telas de abastecimento e de checklist.
-2. **Depois:** o SQL 1 da 6B.
-3. **Por último:** o deploy do código da 6B.
-4. **SQL 2 (triggers):** não depende dessa ordem. Rode só depois da revisão do coordenador.
+**5. O que testar**
+- `GET /logs?inicio=2026-10-19&fim=2026-10-19` → inclui um log feito às 23h de Brasília do dia 19 (02h UTC do dia 20) e não inclui um das 23h do dia 18.
+- `GET /diarios?mes=10&ano=2026` → um diário aberto às 22h de 31/10 (Brasília) aparece em outubro.
 
-**Por que parei aqui:** se eu escrevesse o código da 6B agora, ele ficaria no mesmo diretório que o lote. Você teria que separar os commits na mão para fazer o passo 1 sozinho.
+**6. Impacto:** nenhum no front nem no app. Os filtros continuam iguais e os resultados ficam certos para quem está em Brasília.
 
-**Um detalhe para o coordenador:** `/rastreamento/posicoes` não tem filtro de tempo. Ele pega o ponto mais recente de cada diário aberto, ordenando pela hora do evento. Para mostrar a posição atual, a hora do evento é a ordem correta, então proponho não usar o `COALESCE(recebido_em, ...)` ali. Ele continua sendo usado no descarte de pontos próximos.
+**7. Como desfazer:** `git revert` do commit.
 
-Quando o lote estiver no ar, escreva "continue a 6B" e eu sigo com o código.
+**Ordem:** este código está no mesmo diretório que a 6B, então sobe junto com ela, depois do SQL 1.
+
+## Proposta: datas com fuso nas respostas (precisa do seu OK)
+
+**Hoje:** desde a 6A, todas as datas saem em UTC, mas sem a indicação de fuso. Por exemplo, `"2026-10-19T12:00:00"`.
+- **Front:** o interceptor dele trata texto sem fuso, então está certo.
+- **App:** não sei como ele lê essas datas. Se ele trata o texto como hora de Brasília, hoje está mostrando os horários 3 h adiantados.
+
+**Proposta:** acrescentar o `Z` ao fim das datas das respostas, por exemplo `"2026-10-19T12:00:00Z"`. Isso ficaria atrás de um interruptor novo, `APP_DATAS_COM_FUSO`, que começa desligado.
+- **Desligado:** as datas saem exatamente como hoje.
+- **Ligado:** todas as datas das respostas saem com `Z`.
+
+**Riscos**
+- **Front:** sem risco. O interceptor só mexe em texto sem fuso, e o JavaScript lê o `Z` corretamente.
+- **App:** se ele lê as datas com `LocalDateTime.parse`, **quebra** com o `Z`. Antes de ligar, o app precisa passar a usar `Instant` ou `OffsetDateTime`.
+- **Volta atrás:** se algo der errado, basta pôr `APP_DATAS_COM_FUSO=false` no Render, sem novo jar.
+
+**Perguntas para o Claude Code do app**
+1. Como o app lê as datas que vêm da API: `LocalDateTime.parse`, `Instant` ou outra forma?
+2. Ele trata a data recebida como UTC ou como hora local?
+
+Paro aqui. Se aprovar a proposta, implemento o interruptor (desligado). Depois disso vem a Parte 7 (Swagger).

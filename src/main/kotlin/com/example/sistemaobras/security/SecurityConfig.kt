@@ -98,10 +98,10 @@ class SecurityConfig {
 
         // ---- Só motorista ----
         auth.requestMatchers(HttpMethod.POST, "/turnos/abrir", "/turnos/fechar").hasRole(motorista)
-        auth.requestMatchers(HttpMethod.POST, "/diarios/abrir", "/diarios/fechar/*", "/diarios/*/assinar").hasRole(motorista)
+        auth.requestMatchers(HttpMethod.POST, "/diarios/abrir", "/diarios/fechar/*", "/diarios/*/fechar", "/diarios/*/assinar").hasRole(motorista)
         auth.requestMatchers(HttpMethod.GET, "/diarios/meus").hasRole(motorista)
         auth.requestMatchers(HttpMethod.PUT, "/diarios/*").hasRole(motorista)
-        auth.requestMatchers(HttpMethod.POST, "/abastecimentos", "/ocorrencias", "/rastreamento", "/checklist/respostas").hasRole(motorista)
+        auth.requestMatchers(HttpMethod.POST, "/abastecimentos", "/ocorrencias", "/rastreamento", "/rastreamento/lote", "/checklist/respostas").hasRole(motorista)
 
         // ---- Só gestor (antes das regras "ambos" que usam curinga) ----
         auth.requestMatchers(HttpMethod.GET, "/usuarios", "/usuarios/motoristas/online").hasRole(gestor)

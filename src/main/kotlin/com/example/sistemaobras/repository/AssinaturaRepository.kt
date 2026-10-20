@@ -31,8 +31,8 @@ interface AssinaturaRepository : JpaRepository<DiarioBordo, UUID> {
     @Query(
         value = COLUNAS_DIARIO + """
             WHERE u.login = :login
-              AND (CAST(:mes AS integer) IS NULL OR EXTRACT(MONTH FROM d.aberto_em) = CAST(:mes AS integer))
-              AND (CAST(:ano AS integer) IS NULL OR EXTRACT(YEAR FROM d.aberto_em) = CAST(:ano AS integer))
+              AND (CAST(:mes AS integer) IS NULL OR EXTRACT(MONTH FROM (d.aberto_em AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo')) = CAST(:mes AS integer))
+              AND (CAST(:ano AS integer) IS NULL OR EXTRACT(YEAR FROM (d.aberto_em AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo')) = CAST(:ano AS integer))
               AND (CAST(:status AS text) IS NULL OR CAST(d.status AS text) = CAST(:status AS text))
             ORDER BY d.aberto_em DESC
             LIMIT 200

@@ -1,5 +1,6 @@
 package com.example.sistemaobras.controller
 
+import com.example.sistemaobras.dto.TurnoRequest
 import com.example.sistemaobras.exception.CodigosErro
 import com.example.sistemaobras.exception.ConflitoException
 import com.example.sistemaobras.exception.NaoAutorizadoException
@@ -48,6 +49,7 @@ class ErrosDasRotasTest {
     @MockitoBean lateinit var diarioBordoService: DiarioBordoService
     @MockitoBean lateinit var assinaturaService: AssinaturaService
     @MockitoBean lateinit var logService: LogService
+    @MockitoBean lateinit var diarioDoEvento: DiarioDoEvento
     @MockitoBean lateinit var usuarioRepository: UsuarioRepository
     @MockitoBean lateinit var mecanicoRepository: MecanicoRepository
     @MockitoBean lateinit var postoRepository: PostoRepository
@@ -181,7 +183,7 @@ class ErrosDasRotasTest {
 
     @Test
     fun `turno ja aberto mantem 400 com mensagem`() {
-        given(turnoService.abrirTurno("m")).willThrow(RegraNegocioException("Já existe um turno aberto para este usuário."))
+        given(turnoService.abrirTurno(TurnoRequest("m"))).willThrow(RegraNegocioException("Já existe um turno aberto para este usuário."))
         json(post("/turnos/abrir"), """{"login":"m"}""")
             .andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.erro").value("Já existe um turno aberto para este usuário."))
@@ -365,7 +367,7 @@ class ErrosDasRotasTest {
             .andExpect(jsonPath("$.erro").value("Cadastre seu PIN de assinatura antes de abrir um diário."))
             .andExpect(jsonPath("$.codigo").value("PIN_AUSENTE"))
 
-        given(turnoService.fecharTurno("m")).willThrow(
+        given(turnoService.fecharTurno(TurnoRequest("m"))).willThrow(
             RegraNegocioException("Você tem um diário aberto. Feche o diário antes de sair de serviço.", CodigosErro.TURNO_COM_DIARIO_ABERTO))
         json(post("/turnos/fechar"), """{"login":"m"}""")
             .andExpect(status().isBadRequest)
@@ -374,10 +376,45 @@ class ErrosDasRotasTest {
 
     @Test
     fun `erro sem codigo nao ganha o campo`() {
-        given(turnoService.abrirTurno("m")).willThrow(RegraNegocioException("Já existe um turno aberto para este usuário."))
+        given(turnoService.abrirTurno(TurnoRequest("m"))).willThrow(RegraNegocioException("Já existe um turno aberto para este usuário."))
         json(post("/turnos/abrir"), """{"login":"m"}""")
             .andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.codigo").doesNotExist())
+    }
+
+    // ---------- Parte 6B ----------
+
+    @Test
+    fun `reenvio simultaneo com o mesmo idLocal responde 409 na rota nova e 400 na antiga`() {
+        val duplicado = DataIntegrityViolationException("x",
+            SQLException("duplicate key value violates unique constraint \"uq_rastreamento_id_local\"", "23505"))
+        given(rastreamentoService.registrarLote(qualquer())).willThrow(duplicado)
+        json(post("/rastreamento/lote"), """{"diarioId":"$uuid","pontos":[{"latitude":1,"longitude":2}]}""")
+            .andExpect(status().isConflict)
+            .andExpect(jsonPath("$.codigo").value("REENVIO_SIMULTANEO"))
+
+        given(abastecimentoService.registrar(qualquer())).willThrow(duplicado)
+        json(post("/abastecimentos"), """{"loginMotorista":"m","tipoCombustivel":"diesel","litros":10,"valorTotal":60}""")
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.codigo").value("REENVIO_SIMULTANEO"))
+    }
+
+    @Test
+    fun `fechar diario por id usa os status das rotas novas`() {
+        given(diarioBordoService.fecharDiarioPorId(anyString(), qualquer()))
+            .willThrow(ConflitoException("Este diário já foi fechado.", "DIARIO_JA_FECHADO"))
+        json(post("/diarios/$uuid/fechar"), """{"medidorFinal":10}""")
+            .andExpect(status().isConflict)
+            .andExpect(jsonPath("$.codigo").value("DIARIO_JA_FECHADO"))
+    }
+
+    @Test
+    fun `horario no futuro alem de 24 h responde 422 na rota nova`() {
+        given(rastreamentoService.registrarLote(qualquer()))
+            .willThrow(com.example.sistemaobras.exception.NaoProcessavelException("Horário no futuro.", "HORARIO_FUTURO"))
+        json(post("/rastreamento/lote"), """{"diarioId":"$uuid","pontos":[]}""")
+            .andExpect(status().isUnprocessableEntity)
+            .andExpect(jsonPath("$.codigo").value("HORARIO_FUTURO"))
     }
 
     @Test

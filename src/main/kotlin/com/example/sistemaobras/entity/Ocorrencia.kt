@@ -43,5 +43,22 @@ data class Ocorrencia(
     val status: String = StatusOcorrencia.PENDENTE,
 
     @Column(name = "resolvida_em")
-    val resolvidaEm: LocalDateTime? = null
+    val resolvidaEm: LocalDateTime? = null,
+
+    // Parte 6B (colunas do SQL 1): hora do servidor, reenvio e horário suspeito.
+    // registrado_em passa a ser a hora do evento (celular).
+    @Column(name = "recebido_em")
+    val recebidoEm: LocalDateTime? = null,
+
+    @Column(name = "id_local")
+    val idLocal: UUID? = null,
+
+    @Column(name = "desvio_relogio_seg")
+    val desvioRelogioSeg: Int? = null,
+
+    @Column(name = "horario_suspeito", nullable = false)
+    val horarioSuspeito: Boolean = false,
+
+    @Column(name = "motivo_suspeita")
+    val motivoSuspeita: String? = null
 )

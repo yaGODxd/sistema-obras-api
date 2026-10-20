@@ -4,6 +4,7 @@ import com.example.sistemaobras.entity.Abastecimento
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
+import org.springframework.data.repository.query.Param
 import org.springframework.stereotype.Repository
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
@@ -11,38 +12,55 @@ import java.util.UUID
 @Repository
 interface AbastecimentoRepository : JpaRepository<Abastecimento, UUID> {
 
+    // Parte 6B: o diário já vem resolvido pelo service (aberto agora, por id ou pelo
+    // veículo no horário do evento). registrado_em = hora do evento; recebido_em = servidor.
     @Modifying
     @Transactional
     @Query(
         value = """
-    INSERT INTO abastecimentos (diario_id, tipo_combustivel, litros, valor_total, posto, veiculo_abastecido_id, registrado_em)
-    SELECT 
-        CASE WHEN :veiculoAbastecidoId IS NOT NULL THEN
-            (SELECT d.id FROM diarios_bordo d 
-             INNER JOIN veiculos v ON v.id = d.veiculo_id
-             WHERE v.id = CAST(:veiculoAbastecidoId AS uuid) AND d.status = 'aberto'
-             LIMIT 1)
-        ELSE
-            (SELECT d.id FROM diarios_bordo d
-             INNER JOIN usuarios u ON u.id = d.usuario_id
-             WHERE u.login = :login AND d.status = 'aberto'
-             LIMIT 1)
-        END,
-        :tipoCombustivel, :litros, :valorTotal, :posto, 
-        CASE WHEN :veiculoAbastecidoId IS NOT NULL THEN CAST(:veiculoAbastecidoId AS uuid) ELSE NULL END,
-        COALESCE(CAST(:registradoEm AS timestamp), NOW())
+    INSERT INTO abastecimentos (id, diario_id, tipo_combustivel, litros, valor_total, posto, veiculo_abastecido_id,
+                                registrado_em, recebido_em, id_local, desvio_relogio_seg, horario_suspeito,
+                                motivo_suspeita, registrado_por)
+    VALUES (
+        CAST(:id AS uuid), CAST(:diarioId AS uuid), :tipoCombustivel, :litros, :valorTotal, CAST(:posto AS varchar),
+        CAST(:veiculoAbastecidoId AS uuid),
+        :registradoEm, :recebidoEm, CAST(:idLocal AS uuid), CAST(:desvio AS integer), :suspeito,
+        CAST(:motivo AS varchar),
+        (SELECT u.id FROM usuarios u WHERE u.login = CAST(:registradoPor AS varchar))
+    )
 """,
         nativeQuery = true
     )
     fun inserirAbastecimento(
-        @org.springframework.data.repository.query.Param("login") login: String,
-        @org.springframework.data.repository.query.Param("tipoCombustivel") tipoCombustivel: String,
-        @org.springframework.data.repository.query.Param("litros") litros: Double,
-        @org.springframework.data.repository.query.Param("valorTotal") valorTotal: Double,
-        @org.springframework.data.repository.query.Param("posto") posto: String?,
-        @org.springframework.data.repository.query.Param("veiculoAbastecidoId") veiculoAbastecidoId: String? = null,
-        @org.springframework.data.repository.query.Param("registradoEm") registradoEm: java.time.LocalDateTime? = null
+        @Param("id") id: String,
+        @Param("diarioId") diarioId: String,
+        @Param("tipoCombustivel") tipoCombustivel: String,
+        @Param("litros") litros: Double,
+        @Param("valorTotal") valorTotal: Double,
+        @Param("posto") posto: String?,
+        @Param("veiculoAbastecidoId") veiculoAbastecidoId: String?,
+        @Param("registradoEm") registradoEm: java.time.LocalDateTime,
+        @Param("recebidoEm") recebidoEm: java.time.LocalDateTime,
+        @Param("idLocal") idLocal: String?,
+        @Param("desvio") desvio: Int?,
+        @Param("suspeito") suspeito: Boolean,
+        @Param("motivo") motivo: String?,
+        @Param("registradoPor") registradoPor: String?
     )
+
+    // Reenvio (Parte 6B): [0] id, [1] login do dono do diário, [2] login de quem registrou (pode ser nulo).
+    @Query(
+        value = """
+        SELECT a.id, u.login, rp.login
+        FROM abastecimentos a
+        INNER JOIN diarios_bordo d ON d.id = a.diario_id
+        INNER JOIN usuarios u ON u.id = d.usuario_id
+        LEFT JOIN usuarios rp ON rp.id = a.registrado_por
+        WHERE a.id_local = CAST(:idLocal AS uuid)
+    """,
+        nativeQuery = true
+    )
+    fun buscarPorIdLocal(@Param("idLocal") idLocal: String): List<Array<Any?>>
 
     @Query(
         value = """
@@ -65,7 +83,6 @@ interface AbastecimentoRepository : JpaRepository<Abastecimento, UUID> {
     fun findByDiarioId(
         @org.springframework.data.repository.query.Param("diarioId") diarioId: String
     ): List<Abastecimento>
-
     @Query(
         value = """
         SELECT

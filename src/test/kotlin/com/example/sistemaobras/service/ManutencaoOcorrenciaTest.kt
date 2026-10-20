@@ -35,7 +35,7 @@ class ManutencaoOcorrenciaTest {
 
     private val ocorrenciaService = OcorrenciaService(
         ocorrenciaRepository, diarioRepository, mock(UsuarioRepository::class.java),
-        veiculoRepository, manutencaoRepository, logService
+        veiculoRepository, manutencaoRepository, logService, mock(DiarioDoEvento::class.java)
     )
     private val service = ManutencaoService(
         manutencaoRepository, mock(ManutencaoPecaRepository::class.java), veiculoRepository,

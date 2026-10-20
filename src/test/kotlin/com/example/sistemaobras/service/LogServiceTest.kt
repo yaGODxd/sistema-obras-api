@@ -50,6 +50,17 @@ class LogServiceTest {
     }
 
     @Test
+    fun `filtro de logs usa o dia de Brasilia`() {
+        service.filtrar(null, null, "2026-10-19", "2026-10-19")
+        // 19/10 em Brasília (UTC-3) = de 19/10 03:00 até 20/10 02:59:59.999999 em UTC
+        verify(logRepository).filtrar(
+            null, null,
+            java.time.LocalDateTime.of(2026, 10, 19, 3, 0),
+            java.time.LocalDateTime.of(2026, 10, 20, 2, 59, 59, 999_999_000)
+        )
+    }
+
+    @Test
     fun `sem token o autor do log e nulo`() {
         assertEquals(null, service.loginAutenticado())
     }

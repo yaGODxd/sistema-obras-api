@@ -148,6 +148,21 @@ interface VeiculoRepository : JpaRepository<Veiculo, UUID> {
         @org.springframework.data.repository.query.Param("veiculoId") veiculoId: String
     ): List<Array<Any>>
 
+    // Status de todos os veículos (inclusive inativos) com a mesma placa normalizada.
+    // ignorarId: o próprio veículo na edição.
+    @Query(
+        value = """
+        SELECT CAST(status AS text) FROM veiculos
+        WHERE upper(regexp_replace(placa, '[^A-Za-z0-9]', '', 'g')) = :placa
+        AND (CAST(:ignorarId AS uuid) IS NULL OR id <> CAST(:ignorarId AS uuid))
+        """,
+        nativeQuery = true
+    )
+    fun statusDosVeiculosComPlaca(
+        @org.springframework.data.repository.query.Param("placa") placa: String,
+        @org.springframework.data.repository.query.Param("ignorarId") ignorarId: String?
+    ): List<String>
+
     // Tipos de veículo (id, nome, medidor) numa consulta só, para montar as listas.
     @Query(value = "SELECT CAST(id AS text), nome, CAST(medidor AS text) FROM tipo_veiculo", nativeQuery = true)
     fun listarTipos(): List<Array<Any?>>

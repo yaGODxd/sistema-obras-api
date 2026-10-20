@@ -34,6 +34,16 @@ class DiarioBordoController(
         return ResponseEntity.ok(diarioService.fecharDiario(login, request))
     }
 
+    // Rota nova (Parte 6B): fecha pelo id do diário, com ocorridoEm e idLocal (idempotente).
+    // 400 dado inválido, 403 diário de outro motorista, 404 não existe, 409 já fechado/idLocal em uso, 422 horário.
+    @PostMapping("/{id}/fechar")
+    fun fecharDiarioPorId(
+        @PathVariable id: String,
+        @Valid @RequestBody request: FecharDiarioRequest
+    ): ResponseEntity<DiarioResponse> {
+        return ResponseEntity.ok(diarioService.fecharDiarioPorId(id, request))
+    }
+
     @GetMapping("/aberto/{login}")
     fun buscarDiarioAberto(@PathVariable login: String): ResponseEntity<DiarioResponse> {
         ControleAcesso.conferirProprioLogin(login)

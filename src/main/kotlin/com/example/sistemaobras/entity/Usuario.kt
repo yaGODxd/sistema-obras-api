@@ -63,6 +63,8 @@ data class Usuario(
     val atualizadoEm: LocalDateTime = LocalDateTime.now(java.time.ZoneOffset.UTC)
 )
 
+// administrador existe no enum perfil_usuario do banco (sem regra de permissão por enquanto).
+// desconhecido: só para leitura tolerante (ver PerfilUsuarioConverter); nunca é gravado.
 enum class PerfilUsuario {
-    gestor, motorista
+    gestor, motorista, administrador, desconhecido
 }

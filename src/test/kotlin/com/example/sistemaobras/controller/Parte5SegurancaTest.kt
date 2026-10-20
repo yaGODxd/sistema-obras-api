@@ -43,6 +43,7 @@ class Parte5SegurancaTest {
     @MockitoBean lateinit var diarioBordoService: DiarioBordoService
     @MockitoBean lateinit var assinaturaService: AssinaturaService
     @MockitoBean lateinit var logService: LogService
+    @MockitoBean lateinit var diarioDoEvento: DiarioDoEvento
     @MockitoBean lateinit var usuarioRepository: UsuarioRepository
     @MockitoBean lateinit var mecanicoRepository: MecanicoRepository
     @MockitoBean lateinit var postoRepository: PostoRepository
@@ -94,6 +95,18 @@ class Parte5SegurancaTest {
         mockMvc.perform(post("/turnos/abrir").token("tg").json("""{"login":"gestor1"}"""))
             .andExpect(status().isForbidden)
         mockMvc.perform(post("/turnos/abrir").token("tm").json("""{"login":"ana"}"""))
+            .andExpect(status().isOk)
+    }
+
+    @Test
+    fun `rotas novas da 6B sao so do motorista`() {
+        mockMvc.perform(post("/diarios/${java.util.UUID.randomUUID()}/fechar").token("tg").json("""{"medidorFinal":10}"""))
+            .andExpect(status().isForbidden)
+        mockMvc.perform(post("/diarios/${java.util.UUID.randomUUID()}/fechar").token("tm").json("""{"medidorFinal":10}"""))
+            .andExpect(status().isOk)
+        mockMvc.perform(post("/rastreamento/lote").token("tg").json("""{"diarioId":"x","pontos":[]}"""))
+            .andExpect(status().isForbidden)
+        mockMvc.perform(post("/rastreamento/lote").token("tm").json("""{"diarioId":"x","pontos":[]}"""))
             .andExpect(status().isOk)
     }
 
